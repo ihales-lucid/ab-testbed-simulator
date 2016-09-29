@@ -11,11 +11,11 @@ def sequential_evanmiller_onesided(a_arm, b_arm):
     c = a_arm.total_conversions()
 
     if t-c >= 2*sqrt(n):
-        return 2
+        return 2, None
     elif t+c >= n:
-        return 1
+        return 1, None
     else:
-        return None
+        return None, None
 
 
 def sequential_evanmiller_twosided(a_arm, b_arm):
@@ -24,11 +24,11 @@ def sequential_evanmiller_twosided(a_arm, b_arm):
     c = a_arm.total_conversions()
 
     if (t-c) >= 2.25*sqrt(n):
-        return 2
+        return 2, None
     elif (c-t) >= 2.25*sqrt(n):
-        return 1
+        return 1, None
     elif (t+c) >= n:
-        return 1
+        return 1, None
     else:
         return None
 
@@ -56,13 +56,13 @@ def first_significant(a_arm, b_arm):
     if (s_a + s_b > 100):
         if (testbed.get_p_value(s_a, n_a, s_b, n_b) < alpha or n_a + n_b >= max_samples):
             if (s_a / n_a > s_b / n_b):
-                return 1
+                return 1, None
             else:
-                return 2
+                return 2, None
         else:
-            return None
+            return None, None
     else:
-        return None
+        return None, None
 
 # stop after a fixed number of samples
 
@@ -77,13 +77,13 @@ def fixed_sample(a_arm, b_arm):
     if (n_a + n_b >= sample_size):
         if (testbed.get_p_value(s_a, n_a, s_b, n_b) < alpha):
             if (s_a / n_a > s_b / n_b):
-                return 1
+                return 1, None
             else:
-                return 2
+                return 2, None
         else:
-            return 1
+            return 1, None
     else:
-        return None
+        return None, None
 
 
 agg_results, _ = testbed.multi_test([sequential_evanmiller_onesided], max_tests=1000, plot=True)
