@@ -85,6 +85,7 @@ def run_test(stopping_rule, mrr=[5, 9, 30, 0], n=10000, p_baseline_default=[.007
     people_count = 0
     test_count = 1
     proportion_a = .5
+    proportion_a_prev = .5
     results = []
 
     while test_count <= max_tests:
@@ -97,7 +98,9 @@ def run_test(stopping_rule, mrr=[5, 9, 30, 0], n=10000, p_baseline_default=[.007
         # eventually have the second return var be T-A Prop.
         choice, proportion_a = stopping_rule(a_arm, b_arm)
         if proportion_a is None:
-            proportion_a = .5
+            proportion_a = proportion_a_prev
+        else:
+            proportion_a_prev = proportion_a
 
         if choice:
             temp_results = []
@@ -144,6 +147,10 @@ def run_test(stopping_rule, mrr=[5, 9, 30, 0], n=10000, p_baseline_default=[.007
             # Start new test arms
             a_arm = TestArm()
             b_arm = TestArm()
+
+            # Reset the proportions for the arms
+            proportion_a = 0.5
+            proportion_a_prev = 0.5
 
     return results
 
