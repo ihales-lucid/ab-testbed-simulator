@@ -34,15 +34,35 @@ def sequential_evanmiller_twosided(a_arm, b_arm):
 
 
 def expected_loss_test(a_arm, b_arm):
-    mrr = [5, 9, 30, 0]
-    # Run 100000 test and simulate the loss
-    a_results = np.random.dirichlet(a_arm, 100000) * mrr
-    b_results = np.random.dirichlet(b_arm, 100000) * mrr
+    if (sum(a_arm.counts)+sum(b_arm.counts))%100 == 0:
+        mrr = [5, 9, 30, 0]
+        # Run 100000 test and simulate the loss
+        priors = np.array([1, 1, 1, 1])
+        a_results = (np.random.dirichlet(a_arm.counts + priors, 100000) * mrr).sum(axis=1)
+        b_results = (np.random.dirichlet(b_arm.counts + priors, 100000) * mrr).sum(axis=1)
 
-    expected_loss = np.maximum(a_results - b_results, 0).mean()
-    expected_benefit = np.maximum(b_results - a_results, 0).mean()
+        if sum(a_results < b_results) / len(a_results) > .99:
+            return 2, None
+        elif sum(b_results < a_results) / len(a_results) > .99:
+            return 1, None
 
 
+        expected_loss = np.maximum(a_results - b_results, 0).mean()
+        expected_benefit = np.maximum(b_results - a_results, 0).mean()
+
+        if (expected_loss < expected_benefit) and (expected_loss < .005):
+            return 2, None
+        if sum(a_arm.counts) + sum(b_arm.counts) >= 10000:
+            if sum(a_results<b_results)/len(a_results) > .90:
+                return 2, None
+            else:
+                return 1, None
+
+        if expected_benefit < .001:
+            return 1, None
+        return None, None
+
+    return None, None
     
 
 # Pick a winner the first time significance is reached
@@ -88,7 +108,7 @@ def fixed_sample(a_arm, b_arm):
         return None, None
 
 
-agg_results, _ = testbed.multi_test([sequential_evanmiller_onesided], max_tests=200, plot=True)
+agg_results, _ = testbed.multi_test([expected_loss_test], max_tests=20, plot=True)
 agg_results.to_csv('agg_results.csv')
 
 # print(agg_results)
