@@ -17,6 +17,7 @@ def sequential_evanmiller_onesided(a_arm, b_arm):
     else:
         return None
 
+
 def sequential_evanmiller_twosided(a_arm, b_arm):
     n = 1000
     t = b_arm.total_conversions()
@@ -31,16 +32,15 @@ def sequential_evanmiller_twosided(a_arm, b_arm):
     else:
         return None
 
+
 def expected_loss_test(a_arm, b_arm):
     mrr = [5, 9, 30, 0]
     # Run 100000 test and simulate the loss
     a_results = np.random.dirichlet(a_arm, 100000) * mrr
     b_results = np.random.dirichlet(b_arm, 100000) * mrr
 
-    expected_benefit = (b_results.mean() - a_results.mean())
-    expected_loss = (a_results - b_results).mean()
-    print(expected_loss)
-    print(expected_benefit)
+    expected_loss = np.maximum(a_results - b_results, 0).mean()
+    expected_benefit = np.maximum(b_results - a_results, 0).mean()
     
 
 # Pick a winner the first time significance is reached
