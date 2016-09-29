@@ -86,7 +86,7 @@ def fixed_sample(a_arm, b_arm):
         return None, None
 
 
-agg_results, _ = testbed.multi_test([sequential_evanmiller_onesided], max_tests=1000, plot=True)
+agg_results, _ = testbed.multi_test([sequential_evanmiller_onesided], max_tests=100000, plot=True)
 agg_results.to_csv('agg_results.csv')
 
 # print(agg_results)

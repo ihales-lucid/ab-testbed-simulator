@@ -82,7 +82,6 @@ def run_test(stopping_rule, mrr=[5, 9, 30, 0], n=10000, p_baseline_default=[.007
     a_arm = TestArm()
     b_arm = TestArm()
 
-    revenue = 0
     people_count = 0
     test_count = 1
     proportion_a = .5
@@ -96,7 +95,9 @@ def run_test(stopping_rule, mrr=[5, 9, 30, 0], n=10000, p_baseline_default=[.007
 
         # Pass the results of the test (tests must accept two lists of len = 4 and return 1, 2, or None)
         # eventually have the second return var be T-A Prop.
-        choice = stopping_rule(a_arm, b_arm)
+        choice, proportion_a = stopping_rule(a_arm, b_arm)
+        if proportion_a is None:
+            proportion_a = .5
 
         if choice:
             temp_results = []
