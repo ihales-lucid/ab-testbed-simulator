@@ -6,7 +6,7 @@ import numpy as np
 # Evan Miller's Sequential stopping rule
 
 def sequential_evanmiller_onesided(a_arm, b_arm):
-    n = 1000
+    n = 10000
     t = b_arm.total_conversions()
     c = a_arm.total_conversions()
 
@@ -41,6 +41,8 @@ def expected_loss_test(a_arm, b_arm):
 
     expected_loss = np.maximum(a_results - b_results, 0).mean()
     expected_benefit = np.maximum(b_results - a_results, 0).mean()
+
+
     
 
 # Pick a winner the first time significance is reached
@@ -86,7 +88,7 @@ def fixed_sample(a_arm, b_arm):
         return None, None
 
 
-agg_results, _ = testbed.multi_test([sequential_evanmiller_onesided], max_tests=100000, plot=True)
+agg_results, _ = testbed.multi_test([sequential_evanmiller_onesided], max_tests=200, plot=True)
 agg_results.to_csv('agg_results.csv')
 
 # print(agg_results)
