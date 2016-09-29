@@ -74,7 +74,7 @@ def run_test(stopping_rule, mrr=[5, 9, 30, 0], n=10000, p_baseline_default=[.007
     # Control the probability of B winning
     d_scale_factor = 10000
     d_shift_factor = .95
-    prob_b = np.random.dirichlet(d_scale_factor * np.array(p_baseline) * ([d_shift_factor] * 3 + [1]), n)
+    prob_b = np.random.dirichlet(d_scale_factor * np.array(p_baseline)*([d_shift_factor]*3+[1]), n)
 
     p_a = prob_a[0]
     p_b = prob_b[0]
@@ -82,24 +82,22 @@ def run_test(stopping_rule, mrr=[5, 9, 30, 0], n=10000, p_baseline_default=[.007
     a_arm = TestArm()
     b_arm = TestArm()
 
+    revenue = 0
     people_count = 0
     test_count = 1
-    proportion_a = .5  # set the initial proportion for the A/B split. This can be adjusted after the first sample
+    proportion_a = .5
     results = []
 
     while test_count <= max_tests:
+
         # Get a new sample and increment the people count
         get_sample(proportion_a)
         people_count += 1
 
-        # Pass the results of the test (tests must accept two lists of len = 4 and two elements: 1, 2, or None as the
-        # choice, and a proportion for a (or None))
+        # Pass the results of the test (tests must accept two lists of len = 4 and return 1, 2, or None)
+        # eventually have the second return var be T-A Prop.
+        choice = stopping_rule(a_arm, b_arm)
 
-        choice, proportion_a = stopping_rule(a_arm, b_arm)
-
-        if proportion_a is None:
-            proportion_a = .5
-            
         if choice:
             temp_results = []
             temp_results.append(test_count)
@@ -132,6 +130,9 @@ def run_test(stopping_rule, mrr=[5, 9, 30, 0], n=10000, p_baseline_default=[.007
 
             results.append(temp_results)
 
+            print('Finished test #' + str(test_count))
+            print(str(people_count) + ' people tested so far')
+
             # Increment test count
             test_count += 1
 
@@ -142,9 +143,6 @@ def run_test(stopping_rule, mrr=[5, 9, 30, 0], n=10000, p_baseline_default=[.007
             # Start new test arms
             a_arm = TestArm()
             b_arm = TestArm()
-
-            print('Starting test #' + str(test_count))
-            print(str(people_count) + ' people tested so far')
 
     return results
 
@@ -157,17 +155,12 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.007, .00
                  'B Number', 'Total Number', 'Choice', 'Actual Winner', 'A Revenue', 'B Revenue',
                  'Regret', 'EV A Measured', 'EV B Measured', 'EV True Incremental',
                  'EV Measured Incremental'])
-    agg_test_results = pd.DataFrame(
-        columns=['Test Name', 'Test Count', 'People Count', 'True Positive', 'False Positive',
-                 'True Negative', 'False Negative', 'True Positive Rate',
-                 'True Negative Rate', 'Positive Predictive Value',
-                 'Negative Predictive Value', 'Regret', 'Revenue', 'Actual Average EV Lift',
-                 'Measured Average EV Lift', 'Actual Total EV Lift',
-                 'Measured Total EV Lift'])
-    # Set up plots (and a counter for axes array)
-    i = 0
-    if plot:
-        fig, axarr = plt.subplots(len(decision_rules))
+    agg_test_results = pd.DataFrame(columns=['Test Name', 'Test Count', 'People Count', 'True Positive', 'False Positive',
+                                             'True Negative', 'False Negative', 'True Positive Rate',
+                                             'True Negative Rate', 'Positive Predictive Value',
+                                             'Negative Predictive Value', 'Regret', 'Revenue', 'Actual Average EV Lift',
+                                             'Measured Average EV Lift', 'Actual Total EV Lift',
+                                             'Measured Total EV Lift'])
 
     for rule in decision_rules:
 
@@ -180,49 +173,44 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.007, .00
         true_negative = test_result[(test_result['Choice'] == 'A') & (test_result['Actual Winner'] == 'A')]
         false_negative = test_result[(test_result['Choice'] == 'A') & (test_result['Actual Winner'] == 'B')]
 
-        temp_agg = [[rule.__name__, len(test_result), test_result['Total Number'].sum(), len(true_positive),
-                     len(false_positive),
-                     len(true_negative), len(false_negative),
-                     len(true_positive) / (len(true_positive) + len(false_negative)),
-                     len(true_negative) / (len(true_negative) + len(false_positive)),
-                     len(true_positive) / (len(true_positive) + len(false_positive)),
-                     len(true_negative) / (len(true_negative) + len(false_negative)),
-                     test_result.Regret.sum(), test_result[['A Revenue', 'B Revenue']].sum().sum(),
-                     (test_result[test_result['Choice'] == 'B']['EV B'] / test_result[test_result['Choice'] == 'B'][
-                         'EV A'] - 1).mean(),
-                     (test_result[test_result['Choice'] == 'B']['EV B Measured'] / test_result[test_result[
-                                                                                                   'Choice'] == 'B'][
-                         'EV A Measured'] - 1).mean(),
-                     (test_result[test_result['Choice'] == 'B']['EV B'] - test_result[test_result['Choice'] == 'B'][
-                         'EV A']).sum(),
-                     (test_result[test_result['Choice'] == 'B']['EV B Measured'] - test_result[test_result[
-                                                                                                   'Choice'] == 'B'][
-                         'EV A Measured']).sum()
-                     ]]
+        temp_agg = [[rule.__name__, len(test_result), test_result['Total Number'].sum(), len(true_positive), len(false_positive),
+                    len(true_negative), len(false_negative),
+                    len(true_positive) / (len(true_positive) + len(false_negative)),
+                    len(true_negative) / (len(true_negative) + len(false_positive)),
+                    len(true_positive) / (len(true_positive) + len(false_positive)),
+                    len(true_negative) / (len(true_negative) + len(false_negative)),
+                    test_result.Regret.sum(), test_result[['A Revenue', 'B Revenue']].sum().sum(),
+                    (test_result[test_result['Choice'] == 'B']['EV B'] / test_result[test_result['Choice'] == 'B'][
+                        'EV A'] - 1).mean(),
+                    (test_result[test_result['Choice'] == 'B']['EV B Measured'] / test_result[test_result[
+                                                                                                  'Choice'] == 'B'][
+                        'EV A Measured'] - 1).mean(),
+                    (test_result[test_result['Choice'] == 'B']['EV B'] - test_result[test_result['Choice'] == 'B'][
+                        'EV A']).sum(),
+                    (test_result[test_result['Choice'] == 'B']['EV B Measured'] - test_result[test_result[
+                                                                                                  'Choice'] == 'B'][
+                        'EV A Measured']).sum()
+                    ]]
 
         temp_agg = pd.DataFrame(temp_agg, columns=list(agg_test_results.columns))
+        temp_agg.to_csv(rule.__name__ + ".csv")
 
         agg_test_results = pd.concat([agg_test_results, temp_agg], ignore_index=True)
 
         # Plot Stuff
-        if axarr:
-            if len(decision_rules) == 1:
-                plot_axis = axarr
-            else:
-                plot_axis = axarr[i]
-            plot_axis.set_xlabel("True Difference in EV")
-            plot_axis.set_ylabel('Measured Difference in EV')
-            plot_axis.set_title(rule.__name__)
-            plot_axis.scatter(false_negative['EV B'] - false_negative['EV A'],
+        if plot:
+            plt.xlabel("True Difference in EV")
+            plt.ylabel('Measured Difference in EV')
+            plt.suptitle(rule.__name__)
+            plt.scatter(false_negative['EV B'] - false_negative['EV A'],
                               false_negative['EV B Measured'] - false_negative['EV A Measured'], color='orange')
-            plot_axis.scatter(true_positive['EV B'] - true_positive['EV A'],
+            plt.scatter(true_positive['EV B'] - true_positive['EV A'],
                               true_positive['EV B Measured'] - true_positive['EV A Measured'], color='darkgreen')
-            plot_axis.scatter(true_negative['EV B'] - true_negative['EV A'],
+            plt.scatter(true_negative['EV B'] - true_negative['EV A'],
                               true_negative['EV B Measured'] - true_negative['EV A Measured'], color='blue')
-            plot_axis.scatter(false_positive['EV B'] - false_positive['EV A'],
+            plt.scatter(false_positive['EV B'] - false_positive['EV A'],
                               false_positive['EV B Measured'] - false_positive['EV A Measured'], color='red')
-        i += 1
-    if plot:
-        plt.savefig('test_results.png')
-        plt.show()
+
+            plt.savefig(rule.__name__+ ".png")
+
     return agg_test_results, ind_test_results
