@@ -64,6 +64,29 @@ def expected_loss_test(a_arm, b_arm):
 
     return None, None
 
+
+def certainty_99_or_10000(a_arm, b_arm):
+    if (sum(a_arm.counts)+sum(b_arm.counts))%100 == 0:
+        mrr = [5, 9, 30, 0]
+        priors = np.array([1, 1, 1, 1])
+        a_results = (np.random.dirichlet(a_arm.counts + priors, 100000) * mrr).sum(axis=1)
+        b_results = (np.random.dirichlet(b_arm.counts + priors, 100000) * mrr).sum(axis=1)
+
+        if sum(a_results < b_results) / len(a_results) > .99:
+            return 2, None
+        elif sum(b_results < a_results) / len(a_results) > .99:
+            return 1, None
+        elif sum(a_arm.counts) + sum(b_arm.counts) >= 10000:
+            if sum(a_results<b_results)/len(a_results) > .85:
+                return 2, None
+            else:
+                return 1, None
+        else:
+            return None, None
+    else:
+        return None, None
+
+
 def thompson_sampling(a_arm, b_arm):
     mrr = [5, 9, 30, 0]
     threshold = 0.95
@@ -119,6 +142,7 @@ def first_significant(a_arm, b_arm):
     else:
         return None, None
 
+
 # stop after a fixed number of samples
 
 def fixed_sample(a_arm, b_arm):
@@ -139,6 +163,7 @@ def fixed_sample(a_arm, b_arm):
             return 1, None
     else:
         return None, None
+
 
 def thompson_sampling(a_arm, b_arm):
     mrr = [5, 9, 30, 0]
@@ -171,7 +196,7 @@ def thompson_sampling(a_arm, b_arm):
     else:
         return None, None
 
-agg_results, _ = testbed.multi_test([expected_loss_test], max_tests=20, plot=True)
+agg_results, _ = testbed.multi_test([certainty_99_or_10000], max_tests=20, plot=True)
 
 # print(agg_results)
 # print(_)
