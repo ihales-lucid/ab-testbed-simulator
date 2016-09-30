@@ -196,7 +196,7 @@ def thompson_sampling(a_arm, b_arm):
     else:
         return None, None
 
-agg_results, _ = testbed.multi_test([certainty_99_or_10000], max_tests=20, plot=True)
+agg_results, _ = testbed.multi_test([fixed_sample, thompson_sampling], max_tests=20, plot=True)
 
 # print(agg_results)
 # print(_)
