@@ -142,10 +142,9 @@ def run_test(stopping_rule, mrr=[5, 9, 30, 0], n=10000, p_baseline_default=[.007
                 elif temp_results['Choice'] == 'B' and temp_results['Actual Winner'] == 'B':
                     m_color = 'darkgreen'
 
-                plt.figure(1)
                 m_axis.scatter(temp_results['EV B'] - temp_results['EV A'],
                                temp_results['EV B Measured'] - temp_results['EV A Measured'], color=m_color)
-                plt.draw()
+                m_axis.figure.canvas.draw()
                 plt.pause(.001)
 
             print(stopping_rule.__name__ + ' finished test #' + str(test_count) + ': ' + str(
@@ -185,14 +184,15 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.007, .00
                  'Measured Average EV Lift', 'Actual Total EV Lift',
                  'Measured Total EV Lift'])
     if plot:
-        plt.figure(1)
-        plt.ion()
-        plt.show()
+
         if len(decision_rules) > 3:
             m_size = ceil(sqrt(len(decision_rules)))
-            fig, axes = plt.subplots(m_size, m_size)
+            multi_plt, axes = plt.subplots(m_size, m_size)
         else:
-            fig, axes = plt.subplots(len(decision_rules))
+            multi_plt, axes = plt.subplots(len(decision_rules))
+
+        fig_manager = plt.get_current_fig_manager()
+        fig_manager.window.showMaximized()
 
         axes_count = 0
     for rule in decision_rules:
@@ -202,10 +202,13 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.007, .00
         elif len(decision_rules):
             m_axis = axes[axes_count]
         else:
-            m_axis = axes[floor(axes_count/m_size)][axes_count % m_size]
+            m_axis = axes[floor(axes_count / m_size)][axes_count % m_size]
+
+        # Actually Run the tests
         test_result = pd.DataFrame(
             run_test(rule, mrr=mrr, n=n, p_baseline_default=p_baseline, max_tests=max_tests, m_axis=m_axis),
             columns=list(ind_test_results.columns))
+
         # TODO: Add Queue functionality here to make this part run correctly...
         ind_test_results = pd.concat([ind_test_results, test_result], ignore_index=True)
 
@@ -217,10 +220,14 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.007, .00
         temp_agg = [[rule.__name__, len(test_result), test_result['Total Number'].sum(), len(true_positive),
                      len(false_positive),
                      len(true_negative), len(false_negative),
-                     len(true_positive) / (len(true_positive) + len(false_negative)),
-                     len(true_negative) / (len(true_negative) + len(false_positive)),
-                     len(true_positive) / (len(true_positive) + len(false_positive)),
-                     len(true_negative) / (len(true_negative) + len(false_negative)),
+                     (len(true_positive) / (len(true_positive) + len(false_negative)) if (
+                        len(true_positive) + len(false_negative) != 0) else 0),
+                     (len(true_negative) / (len(true_negative) + len(false_positive)) if (
+                        len(true_negative) + len(false_positive) != 0) else 0),
+                     (len(true_positive) / (len(true_positive) + len(false_positive)) if (len(true_positive) + len(
+                         false_positive)) != 0 else 0),
+                     (len(true_negative) / (len(true_negative) + len(false_negative)) if (len(true_negative) + len(
+                         false_negative)) != 0 else 0),
                      test_result.Regret.sum(), test_result[['A Revenue', 'B Revenue']].sum().sum(),
                      (test_result[test_result['Choice'] == 'B']['EV B'] / test_result[test_result['Choice'] == 'B'][
                          'EV A'] - 1).mean(),
@@ -241,20 +248,24 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.007, .00
 
         # Plot Stuff
         if plot:
-            plt.figure(2)
-            plt.xlabel("True Difference in EV")
-            plt.ylabel('Measured Difference in EV')
-            plt.suptitle(rule.__name__)
-            plt.scatter(false_negative['EV B'] - false_negative['EV A'],
-                        false_negative['EV B Measured'] - false_negative['EV A Measured'], color='orange')
-            plt.scatter(true_positive['EV B'] - true_positive['EV A'],
-                        true_positive['EV B Measured'] - true_positive['EV A Measured'], color='darkgreen')
-            plt.scatter(true_negative['EV B'] - true_negative['EV A'],
-                        true_negative['EV B Measured'] - true_negative['EV A Measured'], color='blue')
-            plt.scatter(false_positive['EV B'] - false_positive['EV A'],
-                        false_positive['EV B Measured'] - false_positive['EV A Measured'], color='red')
+            ind_figure = plt.figure(3)
+            ind_figure.add_subplot(111)
+            ind_figure.axes[0].set_xlabel("True Difference in EV")
+            ind_figure.axes[0].set_ylabel('Measured Difference in EV')
+            ind_figure.axes[0].set_title(rule.__name__)
+            ind_figure.axes[0].scatter(false_negative['EV B'] - false_negative['EV A'],
+                                       false_negative['EV B Measured'] - false_negative['EV A Measured'],
+                                       color='orange')
+            ind_figure.axes[0].scatter(true_positive['EV B'] - true_positive['EV A'],
+                                       true_positive['EV B Measured'] - true_positive['EV A Measured'],
+                                       color='darkgreen')
+            ind_figure.axes[0].scatter(true_negative['EV B'] - true_negative['EV A'],
+                                       true_negative['EV B Measured'] - true_negative['EV A Measured'], color='blue')
+            ind_figure.axes[0].scatter(false_positive['EV B'] - false_positive['EV A'],
+                                       false_positive['EV B Measured'] - false_positive['EV A Measured'], color='red')
 
-            plt.savefig(rule.__name__ + ".png")
+            ind_figure.savefig(rule.__name__ + ".png")
+            plt.close(ind_figure)
 
         axes_count += 1
 
