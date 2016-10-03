@@ -96,11 +96,6 @@ def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_de
     proportion_a_prev = .5
     results = []
 
-    # Set up for live plotting
-    #    if m_axis:
-    #        m_axis.set_title(stopping_rule.__name__)
-    #        m_axis.set_xlabel("True Difference in EV")
-    #        m_axis.set_ylabel('Measured Difference in EV')
 
     while test_count <= max_tests:
 
@@ -176,7 +171,6 @@ def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_de
 
     q.put((results, stopping_rule.__name__))
     plot_q.put(('finished',))
-    # q.cancel_join_thread()
 
 
 def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.007, .0077, .0025], max_tests=1000,
@@ -201,12 +195,10 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.007, .00
     axes_count = 0
     m_procs = []
     for rule in decision_rules:
-        # TODO: Run each test as a process, wait for the processes to close, create combined chart for all of them.
         if plot:
             axis_num = axes_count
         else:
             axis_num = None
-        # TODO: start new process. Processes should write to Queue which will be read in the next for loopsfdsad
         # Actually Run the tests
         m_procs.append(Process(target=run_test, args=(rule, q, plot_q, mrr, n, p_baseline, max_tests, axis_num,)))
         #        test_result = pd.DataFrame(
@@ -266,7 +258,6 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.007, .00
         multi_plt.savefig(filename)
 
     for p in m_procs:
-        # TODO: Add Queue functionality here to make this part run correctly...
         test_data, test_name = q.get()
         test_result = pd.DataFrame(test_data, columns=list(ind_test_results.columns))
         ind_test_results = pd.concat([ind_test_results, test_result], ignore_index=True)
@@ -332,4 +323,5 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.007, .00
         os.makedirs(os.path.dirname(filename), exist_ok=True)
         agg_test_results.to_csv('results/comparison/' + time.strftime('%Y%m%d_%H-%M_') + 'Agg Results.csv', index=False)
         ind_test_results.to_csv('results/comparison/' + time.strftime('%Y%m%d_%H-%M_') + 'Ind Results.csv', index=False)
+
     return agg_test_results, ind_test_results
