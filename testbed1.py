@@ -4,6 +4,7 @@ import pandas as pd
 from math import sqrt, ceil, floor
 from scipy.stats import norm
 from matplotlib import pyplot as plt
+from multiprocessing import Queue, Process
 
 
 # This is a test arm class that lets me deal with test arms in a better way
@@ -46,9 +47,11 @@ def get_p_value(a_success, a_total, b_success, b_total, alternative='two sided')
 
     return p_value
 
+    # TODO: rearrange args
 
-def run_test(stopping_rule, mrr=[5, 9, 30, 0], n=10000, p_baseline_default=[.007, .0077, .0025], max_tests=10000,
-             m_axis=None):
+
+def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_default=[.007, .0077, .0025],
+             max_tests=10000, m_axis=None):
     # us a seed for the competition
     # np.random.seed(2)
 
@@ -91,10 +94,10 @@ def run_test(stopping_rule, mrr=[5, 9, 30, 0], n=10000, p_baseline_default=[.007
     results = []
 
     # Set up for live plotting
-    if m_axis:
-        m_axis.set_title(stopping_rule.__name__)
-        m_axis.set_xlabel("True Difference in EV")
-        m_axis.set_ylabel('Measured Difference in EV')
+    #    if m_axis:
+    #        m_axis.set_title(stopping_rule.__name__)
+    #        m_axis.set_xlabel("True Difference in EV")
+    #        m_axis.set_ylabel('Measured Difference in EV')
 
     while test_count <= max_tests:
 
@@ -111,7 +114,8 @@ def run_test(stopping_rule, mrr=[5, 9, 30, 0], n=10000, p_baseline_default=[.007
             proportion_a_prev = proportion_a
 
         if choice:
-            temp_results = {'Test Number': test_count, 'A Basic': p_a[0], ' A Pro': p_a[1],
+            temp_results = {'Test Name': stopping_rule.__name__, 'Test Number': test_count, 'A Basic': p_a[0],
+                            ' A Pro': p_a[1],
                             'A Team': p_a[2], 'A Free': p_a[3], 'B Basic': p_b[0], ' B Pro': p_b[1],
                             'B Team': p_b[2], 'B Free': p_b[3], 'EV A': ev(p_a), 'EV B': ev(p_b),
                             'A Success': a_arm.total_conversions(), 'A Number': a_arm.total_samples(),
@@ -132,7 +136,7 @@ def run_test(stopping_rule, mrr=[5, 9, 30, 0], n=10000, p_baseline_default=[.007
 
             results.append(temp_results)  # This is now a list of dicts that can easily be appended to a DataFrame
 
-            if m_axis:
+            if m_axis is not None:
                 if temp_results['Choice'] == 'A' and temp_results['Actual Winner'] == 'B':
                     m_color = 'orange'
                 elif temp_results['Choice'] == 'B' and temp_results['Actual Winner'] == 'A':
@@ -142,10 +146,12 @@ def run_test(stopping_rule, mrr=[5, 9, 30, 0], n=10000, p_baseline_default=[.007
                 elif temp_results['Choice'] == 'B' and temp_results['Actual Winner'] == 'B':
                     m_color = 'darkgreen'
 
-                m_axis.scatter(temp_results['EV B'] - temp_results['EV A'],
-                               temp_results['EV B Measured'] - temp_results['EV A Measured'], color=m_color)
-                m_axis.figure.canvas.draw()
-                plt.pause(.001)
+                # TODO: Fix this...
+
+                x = temp_results['EV B'] - temp_results['EV A']
+                y = temp_results['EV B Measured'] - temp_results['EV A Measured']
+                color = m_color
+                plot_q.put((x, y, m_axis, color))
 
             print(stopping_rule.__name__ + ' finished test #' + str(test_count) + ': ' + str(
                 people_count) + ' people tested so far')
@@ -165,13 +171,18 @@ def run_test(stopping_rule, mrr=[5, 9, 30, 0], n=10000, p_baseline_default=[.007
             proportion_a = 0.5
             proportion_a_prev = 0.5
 
-    return results
+    q.put((results, stopping_rule.__name__))
+    plot_q.put(('finished',))
+    # q.cancel_join_thread()
 
 
 def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.007, .0077, .0025], max_tests=1000,
                plot=True):
+    q = Queue()
+    plot_q = Queue()
+
     ind_test_results = pd.DataFrame(
-        columns=['Test Number', 'A Basic', ' A Pro', 'A Team', 'A Free', 'B Basic', ' B Pro',
+        columns=['Test Name', 'Test Number', 'A Basic', ' A Pro', 'A Team', 'A Free', 'B Basic', ' B Pro',
                  'B Team', 'B Free', 'EV A', 'EV B', 'A Success', 'A Number', 'B Success',
                  'B Number', 'Total Number', 'Choice', 'Actual Winner', 'A Revenue', 'B Revenue',
                  'Regret', 'EV A Measured', 'EV B Measured', 'EV True Incremental',
@@ -183,47 +194,90 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.007, .00
                  'Negative Predictive Value', 'Regret', 'Revenue', 'Actual Average EV Lift',
                  'Measured Average EV Lift', 'Actual Total EV Lift',
                  'Measured Total EV Lift'])
+
+    axes_count = 0
+    m_procs = []
+    for rule in decision_rules:
+        # TODO: Run each test as a process, wait for the processes to close, create combined chart for all of them.
+        if plot:
+            axis_num = axes_count
+        else:
+            axis_num = None
+        # TODO: start new process. Processes should write to Queue which will be read in the next for loopsfdsad
+        # Actually Run the tests
+        m_procs.append(Process(target=run_test, args=(rule, q, plot_q, mrr, n, p_baseline, max_tests, axis_num,)))
+        #        test_result = pd.DataFrame(
+        #            run_test(rule, mrr=mrr, n=n, p_baseline_default=p_baseline, max_tests=max_tests, m_axis=m_axis),
+        #            columns=list(ind_test_results.columns))
+        if plot:
+            axes_count += 1
+
+    for p in m_procs:
+        p.start()
+
     if plot:
 
+        def get_axis(m_axis_num):
+            if len(m_procs) == 1:
+                return axes
+            elif len(m_procs) <= 3:
+                return axes[m_axis_num]
+            else:
+                return axes[floor(m_axis_num / m_size)][m_axis_num % m_size]
+
+        # set up figure with correct dimensions
         if len(decision_rules) > 3:
             m_size = ceil(sqrt(len(decision_rules)))
             multi_plt, axes = plt.subplots(m_size, m_size)
         else:
             multi_plt, axes = plt.subplots(len(decision_rules))
 
+        # Add labels to plots
+        label_count = 0
+        for rule in decision_rules:
+            m_axis = get_axis(label_count)
+            m_axis.set_title(rule.__name__)
+            m_axis.set_xlabel('True Difference in EV')
+            m_axis.set_ylabel('Measured Difference in EV')
+            label_count += 1
+
+        # Show plots in a maximized window
+
         fig_manager = plt.get_current_fig_manager()
         fig_manager.window.showMaximized()
 
-        axes_count = 0
-    for rule in decision_rules:
-        # TODO: Run each test as a process, wait for the processes to close, create combined chart for all of them.
-        if len(decision_rules) == 1:
-            m_axis = axes
-        elif len(decision_rules):
-            m_axis = axes[axes_count]
-        else:
-            m_axis = axes[floor(axes_count / m_size)][axes_count % m_size]
+        finished_count = 0
+        while finished_count < len(m_procs):
 
-        # Actually Run the tests
-        test_result = pd.DataFrame(
-            run_test(rule, mrr=mrr, n=n, p_baseline_default=p_baseline, max_tests=max_tests, m_axis=m_axis),
-            columns=list(ind_test_results.columns))
+            val = plot_q.get()
+            if val[0] == 'finished':
+                finished_count += 1
+            else:
+                x, y, axis, color = val
 
+                get_axis(axis).scatter(x, y, color=color)
+                get_axis(axis).figure.canvas.draw()
+                plt.pause(.001)
+
+        multi_plt.savefig('test_battle' + ".png")
+
+    for p in m_procs:
         # TODO: Add Queue functionality here to make this part run correctly...
+        test_data, test_name = q.get()
+        test_result = pd.DataFrame(test_data, columns=list(ind_test_results.columns))
         ind_test_results = pd.concat([ind_test_results, test_result], ignore_index=True)
 
         true_positive = test_result[(test_result['Choice'] == 'B') & (test_result['Actual Winner'] == 'B')]
         false_positive = test_result[(test_result['Choice'] == 'B') & (test_result['Actual Winner'] == 'A')]
         true_negative = test_result[(test_result['Choice'] == 'A') & (test_result['Actual Winner'] == 'A')]
         false_negative = test_result[(test_result['Choice'] == 'A') & (test_result['Actual Winner'] == 'B')]
-
-        temp_agg = [[rule.__name__, len(test_result), test_result['Total Number'].sum(), len(true_positive),
+        temp_agg = [[test_name, len(test_result), test_result['Total Number'].sum(), len(true_positive),
                      len(false_positive),
                      len(true_negative), len(false_negative),
                      (len(true_positive) / (len(true_positive) + len(false_negative)) if (
-                        len(true_positive) + len(false_negative) != 0) else 0),
+                         len(true_positive) + len(false_negative) != 0) else 0),
                      (len(true_negative) / (len(true_negative) + len(false_positive)) if (
-                        len(true_negative) + len(false_positive) != 0) else 0),
+                         len(true_negative) + len(false_positive) != 0) else 0),
                      (len(true_positive) / (len(true_positive) + len(false_positive)) if (len(true_positive) + len(
                          false_positive)) != 0 else 0),
                      (len(true_negative) / (len(true_negative) + len(false_negative)) if (len(true_negative) + len(
@@ -240,19 +294,16 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.007, .00
                                                                                                    'Choice'] == 'B'][
                          'EV A Measured']).sum()
                      ]]
-
         temp_agg = pd.DataFrame(temp_agg, columns=list(agg_test_results.columns))
-        temp_agg.to_csv(rule.__name__ + ".csv")
-
+        temp_agg.to_csv(test_name + ".csv")
         agg_test_results = pd.concat([agg_test_results, temp_agg], ignore_index=True)
-
-        # Plot Stuff
+        # Plot Stuff for each test
         if plot:
             ind_figure = plt.figure(3)
             ind_figure.add_subplot(111)
             ind_figure.axes[0].set_xlabel("True Difference in EV")
             ind_figure.axes[0].set_ylabel('Measured Difference in EV')
-            ind_figure.axes[0].set_title(rule.__name__)
+            ind_figure.axes[0].set_title(test_name)
             ind_figure.axes[0].scatter(false_negative['EV B'] - false_negative['EV A'],
                                        false_negative['EV B Measured'] - false_negative['EV A Measured'],
                                        color='orange')
@@ -263,10 +314,12 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.007, .00
                                        true_negative['EV B Measured'] - true_negative['EV A Measured'], color='blue')
             ind_figure.axes[0].scatter(false_positive['EV B'] - false_positive['EV A'],
                                        false_positive['EV B Measured'] - false_positive['EV A Measured'], color='red')
-
-            ind_figure.savefig(rule.__name__ + ".png")
+            ind_figure.savefig(test_name + ".png")
             plt.close(ind_figure)
 
-        axes_count += 1
+    for p in m_procs:
+        p.join()
 
+        agg_test_results.to_csv('agg_results.csv')
+        ind_test_results.to_csv('ind_results.csv')
     return agg_test_results, ind_test_results
