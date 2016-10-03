@@ -30,7 +30,7 @@ def sequential_evanmiller_twosided(a_arm, b_arm):
     elif (t+c) >= n:
         return 1, None
     else:
-        return None
+        return None, None
 
 
 def expected_loss_test(a_arm, b_arm):
@@ -41,9 +41,9 @@ def expected_loss_test(a_arm, b_arm):
         a_results = (np.random.dirichlet(a_arm.counts + priors, 100000) * mrr).sum(axis=1)
         b_results = (np.random.dirichlet(b_arm.counts + priors, 100000) * mrr).sum(axis=1)
 
-        if sum(a_results < b_results) / len(a_results) > .99:
+        if sum(a_results < b_results) / len(a_results) > .999:
             return 2, None
-        elif sum(b_results < a_results) / len(a_results) > .99:
+        elif sum(b_results < a_results) / len(a_results) > .999:
             return 1, None
 
 
@@ -53,13 +53,37 @@ def expected_loss_test(a_arm, b_arm):
         if (expected_loss < expected_benefit) and (expected_loss < .005):
             return 2, None
         if sum(a_arm.counts) + sum(b_arm.counts) >= 10000:
-            if sum(a_results<b_results)/len(a_results) > .90:
+            if sum(a_results<b_results)/len(a_results) > .95:
                 return 2, None
             else:
                 return 1, None
 
-        if expected_benefit < .001:
+        if (expected_loss > expected_benefit) and expected_benefit < .001:
             return 1, None
+        return None, None
+
+    return None, None
+
+
+def expected_loss_test_pure(a_arm, b_arm):
+    if (sum(a_arm.counts)+sum(b_arm.counts))%100 == 0:
+        mrr = [5, 9, 30, 0]
+        # Run 100000 test and simulate the loss
+        priors = np.array([1, 1, 1, 1])
+        a_results = (np.random.dirichlet(a_arm.counts + priors, 100000) * mrr).sum(axis=1)
+        b_results = (np.random.dirichlet(b_arm.counts + priors, 100000) * mrr).sum(axis=1)
+
+        expected_loss = np.maximum(a_results - b_results, 0).mean()
+        expected_benefit = np.maximum(b_results - a_results, 0).mean()
+
+        if (expected_loss < expected_benefit) and (expected_loss < .005):
+            return 2, None
+        if sum(a_arm.counts) + sum(b_arm.counts) >= 10000:
+            if sum(a_results<b_results)/len(a_results) > .95:
+                return 1, None
+            else:
+                return 1, None
+
         return None, None
 
     return None, None
@@ -180,7 +204,7 @@ def thompson_sampling(a_arm, b_arm):
 
         p_B_optimal = sum(b_results > a_results)/len(a_results)
 
-        print("Probability that B is optimal:" + str(p_B_optimal))
+        # print("Probability that B is optimal:" + str(p_B_optimal))
 
         if p_B_optimal > threshold:
             return 2, None
@@ -197,8 +221,7 @@ def thompson_sampling(a_arm, b_arm):
         return None, None
 
 if __name__ == '__main__':
-#    agg_results, _ = testbed.multi_test([fixed_sample, fixed_sample], max_tests=5, plot=True)
-    testbed.multi_test([fixed_sample, fixed_sample, fixed_sample], max_tests=5, plot=True)
+    testbed.multi_test([thompson_sampling, certainty_99_or_10000], max_tests=50, plot=True)
 # print(agg_results)
 # print(_)
 

@@ -50,12 +50,10 @@ def get_p_value(a_success, a_total, b_success, b_total, alternative='two sided')
 
     return p_value
 
-    # TODO: rearrange args
-
 
 def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_default=[.007, .0077, .0025],
              max_tests=10000, m_axis=None):
-    # us a seed for the competition
+    # use a seed for the competition
     # np.random.seed(2)
 
     p_baseline = p_baseline_default + [1 - sum(p_baseline_default)]
@@ -143,8 +141,6 @@ def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_de
                     m_color = 'blue'
                 elif temp_results['Choice'] == 'B' and temp_results['Actual Winner'] == 'B':
                     m_color = 'darkgreen'
-
-                # TODO: Fix this...
 
                 x = temp_results['EV B'] - temp_results['EV A']
                 y = temp_results['EV B Measured'] - temp_results['EV A Measured']
@@ -252,7 +248,7 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.007, .00
 
                 get_axis(axis).scatter(x, y, color=color)
                 get_axis(axis).figure.canvas.draw()
-                plt.pause(.001)
+                plt.pause(.05)
         filename = 'results/comparison/' + time.strftime('%Y%m%d_%H-%M_') + 'Agg Results.png'
         os.makedirs(os.path.dirname(filename), exist_ok=True)
         multi_plt.savefig(filename)
