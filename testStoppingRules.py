@@ -198,7 +198,7 @@ def thompson_sampling(a_arm, b_arm):
 
 if __name__ == '__main__':
 #    agg_results, _ = testbed.multi_test([fixed_sample, fixed_sample], max_tests=5, plot=True)
-    testbed.multi_test([fixed_sample, sequential_evanmiller_onesided, fixed_sample, fixed_sample], max_tests=20, plot=True)
+    testbed.multi_test([fixed_sample, fixed_sample, fixed_sample], max_tests=5, plot=True)
 # print(agg_results)
 # print(_)
 

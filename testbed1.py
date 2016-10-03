@@ -2,9 +2,12 @@
 import numpy as np
 import pandas as pd
 from math import sqrt, ceil, floor
+
+import time
 from scipy.stats import norm
 from matplotlib import pyplot as plt
 from multiprocessing import Queue, Process
+import os
 
 
 # This is a test arm class that lets me deal with test arms in a better way
@@ -258,8 +261,9 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.007, .00
                 get_axis(axis).scatter(x, y, color=color)
                 get_axis(axis).figure.canvas.draw()
                 plt.pause(.001)
-
-        multi_plt.savefig('test_battle' + ".png")
+        filename = 'results/comparison/' + time.strftime('%Y%m%d_%H-%M_') + 'Agg Results.png'
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        multi_plt.savefig(filename)
 
     for p in m_procs:
         # TODO: Add Queue functionality here to make this part run correctly...
@@ -295,7 +299,10 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.007, .00
                          'EV A Measured']).sum()
                      ]]
         temp_agg = pd.DataFrame(temp_agg, columns=list(agg_test_results.columns))
-        temp_agg.to_csv(test_name + ".csv")
+        filename = 'results/' + test_name + '/' + time.strftime('%Y%m%d_%H-%M_') + test_name + ".csv"
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+
+        temp_agg.to_csv(filename, index=False)
         agg_test_results = pd.concat([agg_test_results, temp_agg], ignore_index=True)
         # Plot Stuff for each test
         if plot:
@@ -314,12 +321,15 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.007, .00
                                        true_negative['EV B Measured'] - true_negative['EV A Measured'], color='blue')
             ind_figure.axes[0].scatter(false_positive['EV B'] - false_positive['EV A'],
                                        false_positive['EV B Measured'] - false_positive['EV A Measured'], color='red')
-            ind_figure.savefig(test_name + ".png")
+            filename = 'results/' + test_name + '/' + time.strftime('%Y%m%d_%H-%M_') + test_name + ".png"
+            os.makedirs(os.path.dirname(filename), exist_ok=True)
+            ind_figure.savefig(filename)
             plt.close(ind_figure)
 
     for p in m_procs:
         p.join()
-
-        agg_test_results.to_csv('agg_results.csv')
-        ind_test_results.to_csv('ind_results.csv')
+        filename = 'results/comparison/' + time.strftime('%Y%m%d_%H-%M_') + "Agg Results.csv"
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        agg_test_results.to_csv('results/comparison/' + time.strftime('%Y%m%d_%H-%M_') + 'Agg Results.csv', index=False)
+        ind_test_results.to_csv('results/comparison/' + time.strftime('%Y%m%d_%H-%M_') + 'Ind Results.csv', index=False)
     return agg_test_results, ind_test_results
