@@ -39,6 +39,8 @@ def get_p_value(a_success, a_total, b_success, b_total, alternative='two sided')
     # calculate proportions and significance
     p_pooled = (a_success + b_success) / (a_total + b_total)
     standard_error = sqrt(p_pooled * (1 - p_pooled) * (1 / a_total + 1 / b_total))
+    if standard_error == 0:
+        return None
     z = (p_a_temp - p_b_temp) / standard_error
 
     if alternative == 'two sided':
@@ -215,6 +217,8 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.007, .00
                 return axes[m_axis_num]
             else:
                 return axes[floor(m_axis_num / m_size)][m_axis_num % m_size]
+
+        plt.ion()
 
         # set up figure with correct dimensions
         if len(decision_rules) > 3:
