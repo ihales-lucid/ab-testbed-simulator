@@ -54,9 +54,10 @@ def get_p_value(a_success, a_total, b_success, b_total, alternative='two sided')
 
 
 def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_default=[.007, .0077, .0025],
-             max_tests=10000, m_axis=None):
+             max_tests=10000, m_axis=None, seed=False):
     # use a seed for the competition
-    # np.random.seed(2)
+    if seed:
+        np.random.seed(2)
 
     p_baseline = p_baseline_default + [1 - sum(p_baseline_default)]
 
@@ -172,7 +173,7 @@ def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_de
 
 
 def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.007, .0077, .0025], max_tests=1000,
-               plot=True):
+               plot=True, seed=False):
     q = Queue()
     plot_q = Queue()
 
@@ -198,7 +199,7 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.007, .00
         else:
             axis_num = None
         # Actually Run the tests
-        m_procs.append(Process(target=run_test, args=(rule, q, plot_q, mrr, n, p_baseline, max_tests, axis_num,)))
+        m_procs.append(Process(target=run_test, args=(rule, q, plot_q, mrr, n, p_baseline, max_tests, axis_num, seed)))
         #        test_result = pd.DataFrame(
         #            run_test(rule, mrr=mrr, n=n, p_baseline_default=p_baseline, max_tests=max_tests, m_axis=m_axis),
         #            columns=list(ind_test_results.columns))
