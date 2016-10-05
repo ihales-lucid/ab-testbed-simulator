@@ -41,5 +41,8 @@ if __name__ == '__main__':
     ''' This is where you actually run the stopping rules. The first arg is a list of the rules that you want to test.
     max_tests is the number of tests that you want to run for each arm. plot plots the output. Seed is the seed for the
     random test generator (so that you can compare each stopping rule using the same test data). A seed of False or None
-    won't set any seed, but any other value will be used for the seed itself.'''
+    won't set any seed, but any other value will be used for the seed itself.
+
+    The resulting data/graphs will be stored under the results folder on your local machine. '''
+
     testbed.multi_test([example_rule, example_rule], max_tests=10, plot=True, seed=True)
