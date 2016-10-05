@@ -164,10 +164,8 @@ def thompson_sampling(a_arm, b_arm):
 
     # Run 100000 test simulations to get the probability that B is better than A, only every x samples
     if (a_arm.total_samples() + b_arm.total_samples()) % 100 == 0:
-        a_results = (np.random.dirichlet(np.array(a_arm.counts) + a_prior, 10000) * mrr).sum(axis=1)
-        b_results = (np.random.dirichlet(np.array(b_arm.counts) + b_prior, 10000) * mrr).sum(axis=1)
 
-        p_b_optimal = sum(b_results > a_results)/len(a_results)
+        p_b_optimal = testbed.get_p_b_optimal(a_arm, b_arm)
 
         # print("Probability that B is optimal:" + str(p_b_optimal))
 
