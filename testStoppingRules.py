@@ -234,7 +234,7 @@ def super_improvement(a_arm, b_arm):
     return None, None
 
 if __name__ == '__main__':
-    testbed.multi_test([expected_loss_pure, expected_loss_pure, expected_loss_pure, expected_loss_pure, expected_loss_pure, expected_loss_pure, expected_loss_pure, expected_loss_pure], max_tests=10, plot=True, seed=True)
+    testbed.multi_test([expected_loss_pure], max_tests=5, plot=True, seed=True)
 # print(agg_results)
 # print(_)
 

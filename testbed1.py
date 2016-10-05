@@ -188,8 +188,8 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.007, .00
                  'True Negative', 'False Negative', 'True Positive Rate',
                  'True Negative Rate', 'Positive Predictive Value',
                  'Negative Predictive Value', 'Regret', 'Revenue', 'Actual Average EV Lift',
-                 'Measured Average EV Lift', 'Actual Total EV Lift',
-                 'Measured Total EV Lift'])
+                 'Measured Average EV Lift', 'Actual Total EV Lift/Million',
+                 'Measured Total EV Lift/Million'])
 
     axes_count = 0
     m_procs = []
@@ -200,9 +200,7 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.007, .00
             axis_num = None
         # Actually Run the tests
         m_procs.append(Process(target=run_test, args=(rule, q, plot_q, mrr, n, p_baseline, max_tests, axis_num, seed)))
-        #        test_result = pd.DataFrame(
-        #            run_test(rule, mrr=mrr, n=n, p_baseline_default=p_baseline, max_tests=max_tests, m_axis=m_axis),
-        #            columns=list(ind_test_results.columns))
+
         if plot:
             axes_count += 1
 
@@ -285,10 +283,10 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.007, .00
                                                                                                    'Choice'] == 'B'][
                          'EV A Measured'] - 1).mean(),
                      (test_result[test_result['Choice'] == 'B']['EV B'] - test_result[test_result['Choice'] == 'B'][
-                         'EV A']).sum(),
+                         'EV A']).sum()/test_result['Total Number'].sum()*1000000,
                      (test_result[test_result['Choice'] == 'B']['EV B Measured'] - test_result[test_result[
                                                                                                    'Choice'] == 'B'][
-                         'EV A Measured']).sum()
+                         'EV A Measured']).sum()/test_result['Total Number'].sum()*1000000
                      ]]
         temp_agg = pd.DataFrame(temp_agg, columns=list(agg_test_results.columns))
         filename = 'results/' + test_name + '/' + time.strftime('%Y%m%d_%H-%M_') + test_name + ".csv"
