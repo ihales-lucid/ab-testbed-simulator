@@ -56,8 +56,8 @@ def get_p_value(a_success, a_total, b_success, b_total, alternative='two sided')
 def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_default=[.007, .0077, .0025],
              max_tests=10000, m_axis=None, seed=False):
     # use a seed for the competition
-    if seed:
-        np.random.seed(2)
+    if seed is not False:
+        np.random.seed(seed)
 
     p_baseline = p_baseline_default + [1 - sum(p_baseline_default)]
 
