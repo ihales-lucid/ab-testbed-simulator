@@ -35,7 +35,6 @@ def sequential_evanmiller_twosided(a_arm, b_arm):
 
 
 def expected_loss_plus(a_arm, b_arm):
-
     if (sum(a_arm.counts)+sum(b_arm.counts)) % 1000 == 0:
         mrr = [5, 9, 30, 0]
         # Run 100000 test and simulate the loss
