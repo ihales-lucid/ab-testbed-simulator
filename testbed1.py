@@ -61,7 +61,7 @@ def get_p_b_optimal(a_arm, b_arm, priors = [1, 1, 1, 1], mrr = [5, 9, 30, 0], n 
     return sum(a_results < b_results) / len(a_results)
 
 
-def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_default=[.007, .0077, .0025],
+def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_default=[.010, .0082, .0025],
              max_tests=10000, m_axis=None, seed=False):
     # use a seed for the competition
     if seed is not False:
@@ -180,7 +180,7 @@ def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_de
     plot_q.put(('finished',))
 
 
-def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.007, .0077, .0025], max_tests=1000,
+def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.010, .0082, .0025], max_tests=1000,
                plot=True, seed=False):
     q = Queue()
     plot_q = Queue()
