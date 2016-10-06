@@ -246,7 +246,7 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.007, .00
         # Show plots in a maximized window
 
         fig_manager = plt.get_current_fig_manager()
-        fig_manager.window.showMaximized()
+        #fig_manager.window.showMaximized()
 
         finished_count = 0
         while finished_count < len(m_procs):
