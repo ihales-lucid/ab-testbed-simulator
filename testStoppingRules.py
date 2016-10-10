@@ -176,7 +176,6 @@ def thompson_sampling(a_arm, b_arm):
             return 1, None
         elif a_arm.total_samples() + b_arm.total_samples() > max_samples:
             if p_b_optimal > 0.95:
-                print('Secondary')
                 return 2, None
             else:
                 return 1, None
@@ -385,7 +384,6 @@ def spencer_rule(a_arm, b_arm, helper):
 
     # Check week 6 and 8
     if participant_count / day_count == 42 or participant_count / day_count == 56:
-        print('week')
 
         # Check for Team Overrides
         team_override = team_check()

@@ -52,8 +52,9 @@ def get_p_value(a_success, a_total, b_success, b_total, alternative='two sided')
 
     return p_value
 
+
 # returns the probability that b is the optimal arm in terms of expected value per user
-def get_p_b_optimal(a_arm, b_arm, priors = [1, 1, 1, 1], mrr = [5, 9, 30, 0], n = 10000):
+def get_p_b_optimal(a_arm, b_arm, priors=[1, 1, 1, 1], mrr=[5, 9, 30, 0], n=10000):
     priors = np.array(priors)
     a_results = (np.random.dirichlet(a_arm.counts + priors, n) * mrr).sum(axis=1)
     b_results = (np.random.dirichlet(b_arm.counts + priors, n) * mrr).sum(axis=1)
@@ -110,7 +111,6 @@ def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_de
     proportion_a_prev = .5
     results = []
 
-
     while test_count <= max_tests:
 
         # Get a new sample and increment the people count
@@ -161,7 +161,7 @@ def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_de
                 x = temp_results['EV B'] - temp_results['EV A']
                 y = temp_results['EV B Measured'] - temp_results['EV A Measured']
                 color = m_color
-                size = (temp_results['A Number'] + temp_results['B Number'])/750
+                size = (temp_results['A Number'] + temp_results['B Number']) / 750
                 plot_q.put((x, y, m_axis, color, size))
 
             print(stopping_rule.__name__ + ' finished test #' + str(test_count) + ': ' + str(
@@ -201,7 +201,7 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.010, .00
         columns=['Test Name', 'Test Count', 'People Count', 'True Positive', 'False Positive',
                  'True Negative', 'False Negative', 'True Positive Rate',
                  'True Negative Rate', 'Positive Predictive Value',
-                 'Negative Predictive Value', 'Regret', 'Revenue', 'Actual Average EV Lift',
+                 'Negative Predictive Value', 'Regret/Million', 'Revenue/Million', 'Actual Average EV Lift',
                  'Measured Average EV Lift', 'Actual Total EV Lift/Million',
                  'Measured Total EV Lift/Million'])
 
@@ -296,17 +296,18 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.010, .00
                          false_positive)) != 0 else 0),
                      (len(true_negative) / (len(true_negative) + len(false_negative)) if (len(true_negative) + len(
                          false_negative)) != 0 else 0),
-                     test_result.Regret.sum(), test_result[['A Revenue', 'B Revenue']].sum().sum(),
+                     test_result.Regret.sum() / test_result['Total Number'].sum() * 1000000,
+                     test_result[['A Revenue', 'B Revenue']].sum().sum() / test_result['Total Number'].sum() * 1000000,
                      (test_result[test_result['Choice'] == 'B']['EV B'] / test_result[test_result['Choice'] == 'B'][
                          'EV A'] - 1).mean(),
                      (test_result[test_result['Choice'] == 'B']['EV B Measured'] / test_result[test_result[
                                                                                                    'Choice'] == 'B'][
                          'EV A Measured'] - 1).mean(),
                      (test_result[test_result['Choice'] == 'B']['EV B'] - test_result[test_result['Choice'] == 'B'][
-                         'EV A']).sum()/test_result['Total Number'].sum()*1000000,
+                         'EV A']).sum() / test_result['Total Number'].sum() * 1000000,
                      (test_result[test_result['Choice'] == 'B']['EV B Measured'] - test_result[test_result[
                                                                                                    'Choice'] == 'B'][
-                         'EV A Measured']).sum()/test_result['Total Number'].sum()*1000000
+                         'EV A Measured']).sum() / test_result['Total Number'].sum() * 1000000
                      ]]
         temp_agg = pd.DataFrame(temp_agg, columns=list(agg_test_results.columns))
         filename = 'results/' + test_name + '/' + time.strftime('%Y%m%d_%H-%M_') + test_name + ".csv"
