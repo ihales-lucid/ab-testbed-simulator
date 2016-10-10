@@ -1,7 +1,7 @@
 # A/B simulator testbed
 import numpy as np
 import pandas as pd
-from math import sqrt, ceil, floor
+from math import sqrt, ceil, floor, log
 
 import time
 from scipy.stats import norm
@@ -40,7 +40,7 @@ def get_p_value(a_success, a_total, b_success, b_total, alternative='two sided')
     p_pooled = (a_success + b_success) / (a_total + b_total)
     standard_error = sqrt(p_pooled * (1 - p_pooled) * (1 / a_total + 1 / b_total))
     if standard_error == 0:
-        return None
+        return 1
     z = (p_a_temp - p_b_temp) / standard_error
 
     if alternative == 'two sided':
@@ -63,6 +63,11 @@ def get_p_b_optimal(a_arm, b_arm, priors = [1, 1, 1, 1], mrr = [5, 9, 30, 0], n 
 
 def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_default=[.010, .0082, .0025],
              max_tests=10000, m_axis=None, seed=False):
+    try:
+        stopping_rule.__name__
+    except AttributeError:
+        stopping_rule.__name__ = 'Unnamed_rule'
+
     # use a seed for the competition
     if seed is not False:
         np.random.seed(seed)
@@ -89,8 +94,8 @@ def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_de
     # Choose test parameters from dirichlet distribution
 
     # Control the probability of B winning
-    d_scale_factor = 10000
-    d_shift_factor = .95
+    d_scale_factor = 5000
+    d_shift_factor = .975
     prob_b = np.random.dirichlet(d_scale_factor * np.array(p_baseline) * ([d_shift_factor] * 3 + [1]), n)
 
     p_a = prob_a[0]
@@ -156,7 +161,8 @@ def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_de
                 x = temp_results['EV B'] - temp_results['EV A']
                 y = temp_results['EV B Measured'] - temp_results['EV A Measured']
                 color = m_color
-                plot_q.put((x, y, m_axis, color))
+                size = (temp_results['A Number'] + temp_results['B Number'])/750
+                plot_q.put((x, y, m_axis, color, size))
 
             print(stopping_rule.__name__ + ' finished test #' + str(test_count) + ': ' + str(
                 people_count) + ' people tested so far')
@@ -237,6 +243,12 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.010, .00
         # Add labels to plots
         label_count = 0
         for rule in decision_rules:
+            # Check for a problem with finding the stopping rule name
+            try:
+                rule.__name__
+            except AttributeError:
+                rule.__name__ = 'Unnamed_rule'
+
             m_axis = get_axis(label_count)
             m_axis.set_title(rule.__name__)
             m_axis.set_xlabel('True Difference in EV')
@@ -255,11 +267,11 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.010, .00
             if val[0] == 'finished':
                 finished_count += 1
             else:
-                x, y, axis, color = val
+                x, y, axis, color, dot_size = val
 
-                get_axis(axis).scatter(x, y, color=color)
+                get_axis(axis).scatter(x, y, color=color, s=dot_size)
                 get_axis(axis).figure.canvas.draw()
-                plt.pause(.05)
+                plt.pause(.001)
         filename = 'results/comparison/' + time.strftime('%Y%m%d_%H-%M_') + 'Agg Results.png'
         os.makedirs(os.path.dirname(filename), exist_ok=True)
         multi_plt.savefig(filename)
