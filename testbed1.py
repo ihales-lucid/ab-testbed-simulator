@@ -53,10 +53,11 @@ def get_p_value(a_success, a_total, b_success, b_total, alternative='two sided')
     return p_value
 
 # returns the probability that b is the optimal arm in terms of expected value per user
-def get_p_b_optimal(a_arm, b_arm, priors = [1, 1, 1, 1], mrr = [5, 9, 30, 0], n = 10000):
-    priors = np.array(priors)
-    a_results = (np.random.dirichlet(a_arm.counts + priors, n) * mrr).sum(axis=1)
-    b_results = (np.random.dirichlet(b_arm.counts + priors, n) * mrr).sum(axis=1)
+def get_p_b_optimal(a_arm, b_arm, a_priors = [1, 1, 1, 1], b_priors = [1, 1, 1, 1], mrr = [5, 9, 30, 0], n = 10000):
+    a_priors = np.array(a_priors)
+    b_priors = np.array(b_priors)
+    a_results = (np.random.dirichlet(a_arm.counts + a_priors, n) * mrr).sum(axis=1)
+    b_results = (np.random.dirichlet(b_arm.counts + b_priors, n) * mrr).sum(axis=1)
 
     return sum(a_results < b_results) / len(a_results)
 
