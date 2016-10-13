@@ -11,9 +11,9 @@ def sequential_evanmiller_onesided(a_arm, b_arm):
     t = b_arm.total_conversions()
     c = a_arm.total_conversions()
 
-    if t-c >= 2*sqrt(n):
+    if t - c >= 2 * sqrt(n):
         return 2, None
-    elif t+c >= n:
+    elif t + c >= n:
         return 1, None
     else:
         return None, None
@@ -24,18 +24,18 @@ def sequential_evanmiller_twosided(a_arm, b_arm):
     t = b_arm.total_conversions()
     c = a_arm.total_conversions()
 
-    if (t-c) >= 2.25*sqrt(n):
+    if (t - c) >= 2.25 * sqrt(n):
         return 2, None
-    elif (c-t) >= 2.25*sqrt(n):
+    elif (c - t) >= 2.25 * sqrt(n):
         return 1, None
-    elif (t+c) >= n:
+    elif (t + c) >= n:
         return 1, None
     else:
         return None, None
 
 
 def expected_loss_plus(a_arm, b_arm):
-    if (sum(a_arm.counts)+sum(b_arm.counts)) % 1000 == 0:
+    if (sum(a_arm.counts) + sum(b_arm.counts)) % 1000 == 0:
         mrr = [5, 9, 30, 0]
         # Run 100000 test and simulate the loss
         priors = np.array([1, 1, 1, 1])
@@ -53,7 +53,7 @@ def expected_loss_plus(a_arm, b_arm):
         if (expected_loss < expected_benefit) and (expected_loss < .001):
             return 2, None
         if sum(a_arm.counts) + sum(b_arm.counts) >= 50000:
-            if sum(a_results < b_results)/len(a_results) > .50:
+            if sum(a_results < b_results) / len(a_results) > .50:
                 return 2, None
             else:
                 return 1, None
@@ -66,8 +66,8 @@ def expected_loss_plus(a_arm, b_arm):
 
 
 def expected_loss_pure(a_arm, b_arm):
-    if (sum(a_arm.counts)+sum(b_arm.counts)) >= 10000:
-        if (sum(a_arm.counts)+sum(b_arm.counts)) % 100 == 0:
+    if (sum(a_arm.counts) + sum(b_arm.counts)) >= 10000:
+        if (sum(a_arm.counts) + sum(b_arm.counts)) % 100 == 0:
             mrr = [5, 9, 30, 0]
             # Run 100000 test and simulate the loss
             priors = np.array([1, 1, 1, 1])
@@ -88,7 +88,7 @@ def expected_loss_pure(a_arm, b_arm):
 
 
 def certainty_99_or_100000(a_arm, b_arm):
-    if (sum(a_arm.counts)+sum(b_arm.counts)) % 1000 == 0:
+    if (sum(a_arm.counts) + sum(b_arm.counts)) % 1000 == 0:
         mrr = [5, 9, 30, 0]
         priors = np.array([1, 1, 1, 1])
         a_results = (np.random.dirichlet(a_arm.counts + priors, 10000) * mrr).sum(axis=1)
@@ -99,7 +99,7 @@ def certainty_99_or_100000(a_arm, b_arm):
         elif sum(b_results < a_results) / len(a_results) > .995:
             return 1, None
         elif sum(a_arm.counts) + sum(b_arm.counts) >= 200000:
-            if sum(a_results < b_results)/len(a_results) > .75:
+            if sum(a_results < b_results) / len(a_results) > .75:
                 return 2, None
             else:
                 return 1, None
@@ -118,7 +118,7 @@ def first_significant(a_arm, b_arm):
     n_b = b_arm.total_samples()
     s_a = a_arm.total_conversions()
     s_b = b_arm.total_conversions()
-    
+
     if (s_a + s_b > 100):
         if testbed.get_p_value(s_a, n_a, s_b, n_b) < alpha:
             if (s_a / n_a) > (s_b / n_b):
@@ -142,7 +142,7 @@ def fixed_sample(a_arm, b_arm):
     s_a = a_arm.total_conversions()
     s_b = b_arm.total_conversions()
     sample_size = 100000
-    
+
     if (n_a + n_b >= sample_size):
         if (testbed.get_p_value(s_a, n_a, s_b, n_b) < alpha):
             if (s_a / n_a > s_b / n_b):
@@ -180,7 +180,7 @@ def thompson_sampling(a_arm, b_arm):
             else:
                 return 1, None
         else:
-            return None, (1-p_b_optimal)
+            return None, (1 - p_b_optimal)
     else:
         return None, None
 
@@ -198,7 +198,7 @@ def thompson_sampling_isaac(a_arm, b_arm):
         a_results = (np.random.dirichlet(np.array(a_arm.counts) + a_prior, 10000) * mrr).sum(axis=1)
         b_results = (np.random.dirichlet(np.array(b_arm.counts) + b_prior, 10000) * mrr).sum(axis=1)
 
-        p_b_optimal = sum(b_results > a_results)/len(a_results)
+        p_b_optimal = sum(b_results > a_results) / len(a_results)
 
         # print("Probability that B is optimal:" + str(p_b_optimal))
 
@@ -212,7 +212,7 @@ def thompson_sampling_isaac(a_arm, b_arm):
             else:
                 return 1, None
         else:
-            return None, (1-p_b_optimal)
+            return None, (1 - p_b_optimal)
     else:
         return None, None
 
@@ -231,6 +231,7 @@ def super_improvement(a_arm, b_arm):
         return 1, None
     return None, None
 
+
 class SpencerHelper:
     def __init__(self):
         self.check_day_three = False
@@ -245,7 +246,6 @@ class SpencerHelper:
 
     def set_checker_seven(self):
         self.check_day_seven = True
-
 
     def clear_checker_seven(self):
         self.check_day_seven = False
@@ -264,7 +264,7 @@ def spencer_rule(a_arm, b_arm, helper):
                                    b_arm.total_conversions(),
                                    b_arm.total_samples())
 
-    def get_cash(multiplier = 1):
+    def get_cash(multiplier=1):
         mrr = [5, 9, 30, 0]
         priors = np.array([1, 1, 1, 1])
         a_results = (np.random.dirichlet(a_arm.counts + priors, 10000) * mrr).sum(axis=1)
@@ -282,17 +282,18 @@ def spencer_rule(a_arm, b_arm, helper):
 
     def team_check():
         if a_arm.counts[2] + b_arm.counts[2] >= 80:
-            if b_arm.counts[2] / a_arm.counts[2] - 1 < -.2 and testbed.get_p_value(a_arm.counts[2], sum(a_arm.counts), b_arm.counts[2], sum(b_arm.counts)) < .1:
+            if b_arm.counts[2] / a_arm.counts[2] - 1 < -.2 and testbed.get_p_value(a_arm.counts[2], sum(a_arm.counts),
+                                                                                   b_arm.counts[2],
+                                                                                   sum(b_arm.counts)) < .1:
                 return 1
-            if testbed.get_p_value(a_arm.counts[2], sum(a_arm.counts), b_arm.counts[2], sum(b_arm.counts)) < .1 and get_cash(1.1) == 'mpositive' and b_arm.counts[2] / a_arm.counts[2] - 1 > 0:
+            if testbed.get_p_value(a_arm.counts[2], sum(a_arm.counts), b_arm.counts[2],
+                                   sum(b_arm.counts)) < .1 and get_cash(1.1) == 'mpositive' and b_arm.counts[2] / \
+                    a_arm.counts[2] - 1 > 0:
                 return 2
         return 0
 
-
-
     day_count = 400
     participant_count = a_arm.total_samples() + b_arm.total_samples()
-
 
     # Check for a drop in conversion rates (95% certainty - use 90% two-sided). If so, revert to T-A. If there's a 5%
     # drop that isn't significant, tell it to check on day three
@@ -415,8 +416,57 @@ def spencer_rule(a_arm, b_arm, helper):
     return None, None
 
 
+def tim_demo_rule(a_arm, b_arm):
+    my_rand = np.random.random()
+
+    if my_rand >= 0.95:
+        return 1, None
+
+    elif my_rand <= 0.05:
+        return 2, None
+
+    return None, None
+
+
+def certainty_or_count(a_arm, b_arm, certainty=.95, count=15000, final_certainty=.9):
+    if (sum(a_arm.counts) + sum(b_arm.counts)) % 1000 == 0:
+        mrr = [5, 9, 30, 0]
+        priors = np.array([1, 1, 1, 1])
+        a_results = (np.random.dirichlet(a_arm.counts + priors, 10000) * mrr).sum(axis=1)
+        b_results = (np.random.dirichlet(b_arm.counts + priors, 10000) * mrr).sum(axis=1)
+
+        if sum(a_results < b_results) / len(a_results) > certainty:
+            return 2, None
+        elif sum(b_results < a_results) / len(a_results) > certainty:
+            return 1, None
+        elif sum(a_arm.counts) + sum(b_arm.counts) >= count:
+            if sum(a_results < b_results) / len(a_results) > final_certainty:
+                return 2, None
+            else:
+                return 1, None
+        else:
+            return None, None
+    else:
+        return None, None
+
+
+def cellist(a_arm, b_arm):
+    if a_arm.total_samples() == 1:
+        return None, .25
+
+    if a_arm.total_samples() > 1000 and  a_arm.total_samples() % 100 == 0 and a_arm.conversion_rate() > b_arm.conversion_rate()*1.05:
+        return 1, None
+
+    if a_arm.total_samples() > 1000 and a_arm.total_samples() % 100 == 0 and a_arm.conversion_rate() < b_arm.conversion_rate() * .95:
+        return 2, None
+
+    if a_arm.total_samples() > 10000:
+        return 1, None
+
+    return None, None
+
+
 if __name__ == '__main__':
     my_helper = SpencerHelper()
     test_partial = partial(spencer_rule, helper=my_helper)
-    testbed.multi_test([test_partial], max_tests=1000, plot=True, seed=5)
-
+    testbed.multi_test([test_partial], max_tests=500, plot=True, seed=None)
