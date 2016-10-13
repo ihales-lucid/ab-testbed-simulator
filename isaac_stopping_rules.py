@@ -4,7 +4,7 @@ import numpy as np
 from functools import partial, update_wrapper
 
 
-def certainty_or_count(a_arm, b_arm, certainty=.999, count=50000, final_certainty=.75):
+def certainty_or_count(a_arm, b_arm, certainty=.999, count=25000, final_certainty=.9):
     if (sum(a_arm.counts) + sum(b_arm.counts)) % 1000 == 0:
         mrr = [5, 9, 30, 0]
         priors = np.array([1, 1, 1, 1])

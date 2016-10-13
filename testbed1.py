@@ -4,7 +4,7 @@ import pandas as pd
 from math import sqrt, ceil, floor, log
 
 import time
-from scipy.stats import norm
+from scipy.stats import norm, beta
 from matplotlib import pyplot as plt
 from multiprocessing import Queue, Process
 import os
@@ -92,12 +92,29 @@ def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_de
 
     prob_a = np.repeat([p_baseline], n, axis=0)
 
-    # Choose test parameters from dirichlet distribution
+    # Choose test parameters using a copula
 
     # Control the probability of B winning
-    d_scale_factor = 5000
-    d_shift_factor = .975
-    prob_b = np.random.dirichlet(d_scale_factor * np.array(p_baseline) * ([d_shift_factor] * 3 + [1]), n)
+
+    def get_copula(shift=.98, scale=9000, uncertainty_ind=.8, uncertainty_team=.6, baseline=[.010, .0082, .0025],
+                   cop_n=10000):
+
+        corr_matrix = np.array([[1, 0.89528368 * uncertainty_ind, 0.824624949 * uncertainty_team],
+                                [0.89528368 * uncertainty_ind, 1, 0.831348201 * uncertainty_team],
+                                [0.824624949 * uncertainty_team, 0.831348201 * uncertainty_team, 1]])
+        mean = [0, 0, 0]
+        z = np.random.multivariate_normal(mean=mean, cov=corr_matrix, size=cop_n)
+        y = norm.cdf(z)
+
+        x1 = beta(baseline[0] * shift * scale, (1 - baseline[0] * shift) * scale).ppf(y[:, 0])
+        x2 = beta(baseline[1] * shift * scale, (1 - baseline[1] * shift) * scale).ppf(y[:, 1])
+        x3 = beta(baseline[2] * shift * scale, (1 - baseline[2] * shift) * scale).ppf(y[:, 2])
+
+        m_dist = np.vstack((x1, x2, x3,)).T
+        m_dist = np.hstack((m_dist, 1 - m_dist.sum(axis=1).reshape(len(m_dist), 1)))
+        return m_dist
+
+    prob_b = get_copula()
 
     p_a = prob_a[0]
     p_b = prob_b[0]
@@ -253,14 +270,18 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.010, .00
             m_axis.set_title(rule.__name__)
             m_axis.set_xlabel('True Difference in EV')
             m_axis.set_ylabel('Measured Difference in EV')
+            m_axis.set_xlim([-.2, .2])
+            m_axis.set_ylim([-.5, .5])
             label_count += 1
 
         # Show plots in a maximized window
 
-        fig_manager = plt.get_current_fig_manager()
-        fig_manager.window.showMaximized()
+        #fig_manager = plt.get_current_fig_manager()
+        #fig_manager.window.showMaximized()
+
 
         finished_count = 0
+        point_counter = 0
         while finished_count < len(m_procs):
 
             val = plot_q.get()
@@ -271,7 +292,12 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.010, .00
 
                 get_axis(axis).scatter(x, y, color=color, s=dot_size)
                 get_axis(axis).figure.canvas.draw()
-                plt.pause(.001)
+                get_axis(axis).figure.canvas.flush_events()
+                plt.pause(1e-8)
+            point_counter += 1
+            if point_counter % 50 == 0:
+                print(str(point_counter) + ' points plotted')
+
         filename = 'results/comparison/' + time.strftime('%Y%m%d_%H-%M_') + 'Agg Results.png'
         os.makedirs(os.path.dirname(filename), exist_ok=True)
         multi_plt.savefig(filename)
