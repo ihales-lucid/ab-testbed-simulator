@@ -257,6 +257,8 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.010, .00
         else:
             multi_plt, axes = plt.subplots(len(decision_rules))
 
+        multi_plt.canvas.draw()
+
         # Add labels to plots
         label_count = 0
         for rule in decision_rules:
@@ -291,9 +293,11 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.010, .00
                 x, y, axis, color, dot_size = val
 
                 get_axis(axis).scatter(x, y, color=color, s=dot_size)
-                get_axis(axis).figure.canvas.draw()
+
+                get_axis(axis).draw_artist(get_axis(axis).scatter(x, y, color=color, s=dot_size))
+                get_axis(axis).figure.canvas.update()
                 get_axis(axis).figure.canvas.flush_events()
-                plt.pause(1e-8)
+
             point_counter += 1
             if point_counter % 50 == 0:
                 print(str(point_counter) + ' points plotted')
