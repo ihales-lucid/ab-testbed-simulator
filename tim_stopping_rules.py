@@ -1,4 +1,5 @@
 import testbed1 as testbed
+from math import sqrt, log
 
 '''Every test rule needs to accept two arm objects from the test-runner. The methods available to arm abjects are:
 total_conversions: The count of conversions for the arm
@@ -171,6 +172,32 @@ def thompson_sampling(a_arm, b_arm):
         return None, None
 
 
+def optimizely(a_arm, b_arm):
+
+    if a_arm.total_conversions() > 1 and b_arm.total_conversions() > 1:
+        Xbar = a_arm.conversion_rate()
+        Ybar = b_arm.conversion_rate()
+        theta = Ybar - Xbar
+        tau = .001
+        alpha = 0.1
+
+        V_n = 2 * (Xbar * (1 - Xbar) + Ybar * (1 - Ybar)) / (a_arm.total_samples() + b_arm.total_samples())
+
+        threshold = sqrt((2 * log(1 / alpha) - log(V_n / V_n + tau)) * (V_n*(V_n + tau)/tau))
+
+        print(str(threshold))
+
+        if abs(theta) > threshold:
+            if Ybar > Xbar:
+                return 2, None
+            else:
+                return 1, None
+        else:
+            return None, None
+    else:
+        return None, None
+
+
 if __name__ == '__main__':
     ''' This is where you actually run the stopping rules. The first arg is a list of the rules that you want to test.
     max_tests is the number of tests that you want to run for each arm. plot plots the output. Seed is the seed for the
@@ -179,4 +206,4 @@ if __name__ == '__main__':
 
     The resulting data/graphs will be stored under the results folder on your local machine. '''
 
-    testbed.multi_test([first_significant_two_sided], max_tests=100, plot=True, seed=True)
+    testbed.multi_test([optimizely], max_tests=100, plot=True, seed=True)
