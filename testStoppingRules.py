@@ -428,8 +428,8 @@ def tim_demo_rule(a_arm, b_arm):
     return None, None
 
 
-def certainty_or_count(a_arm, b_arm, certainty=.95, count=15000, final_certainty=.9):
-    if (sum(a_arm.counts) + sum(b_arm.counts)) % 1000 == 0:
+def certainty_or_count(a_arm, b_arm, certainty=.70, count=4000, final_certainty=.90):
+    if (sum(a_arm.counts) + sum(b_arm.counts)) % 500 == 0:
         mrr = [5, 9, 30, 0]
         priors = np.array([1, 1, 1, 1])
         a_results = (np.random.dirichlet(a_arm.counts + priors, 10000) * mrr).sum(axis=1)
@@ -439,13 +439,57 @@ def certainty_or_count(a_arm, b_arm, certainty=.95, count=15000, final_certainty
             return 2, None
         elif sum(b_results < a_results) / len(a_results) > certainty:
             return 1, None
-        elif sum(a_arm.counts) + sum(b_arm.counts) >= count:
+        elif sum(b_arm.counts) >= count/2:
             if sum(a_results < b_results) / len(a_results) > final_certainty:
                 return 2, None
             else:
                 return 1, None
         else:
-            return None, None
+            return None, .15
+    else:
+        return None, None
+
+
+def certainty_or_count2(a_arm, b_arm, certainty=.70, count=4500, final_certainty=.90):
+    if (sum(a_arm.counts) + sum(b_arm.counts)) % 500 == 0:
+        mrr = [5, 9, 30, 0]
+        priors = np.array([1, 1, 1, 1])
+        a_results = (np.random.dirichlet(a_arm.counts + priors, 10000) * mrr).sum(axis=1)
+        b_results = (np.random.dirichlet(b_arm.counts + priors, 10000) * mrr).sum(axis=1)
+
+        if sum(a_results < b_results) / len(a_results) > certainty:
+            return 2, None
+        elif sum(b_results < a_results) / len(a_results) > certainty:
+            return 1, None
+        elif sum(b_arm.counts) >= count/2:
+            if sum(a_results < b_results) / len(a_results) > final_certainty:
+                return 2, None
+            else:
+                return 1, None
+        else:
+            return None, .15
+    else:
+        return None, None
+
+
+def certainty_or_count3(a_arm, b_arm, certainty=.70, count=4400, final_certainty=.90):
+    if (sum(a_arm.counts) + sum(b_arm.counts)) % 400 == 0:
+        mrr = [5, 9, 30, 0]
+        priors = np.array([1, 1, 1, 1])
+        a_results = (np.random.dirichlet(a_arm.counts + priors, 10000) * mrr).sum(axis=1)
+        b_results = (np.random.dirichlet(b_arm.counts + priors, 10000) * mrr).sum(axis=1)
+
+        if sum(a_results < b_results) / len(a_results) > certainty:
+            return 2, None
+        elif sum(b_results < a_results) / len(a_results) > certainty:
+            return 1, None
+        elif sum(b_arm.counts) >= count/2:
+            if sum(a_results < b_results) / len(a_results) > final_certainty:
+                return 2, None
+            else:
+                return 1, None
+        else:
+            return None, .15
     else:
         return None, None
 
@@ -454,7 +498,7 @@ def cellist(a_arm, b_arm):
     if a_arm.total_samples() == 1:
         return None, .25
 
-    if a_arm.total_samples() > 1000 and  a_arm.total_samples() % 100 == 0 and a_arm.conversion_rate() > b_arm.conversion_rate()*1.05:
+    if a_arm.total_samples() > 1000 and a_arm.total_samples() % 100 == 0 and a_arm.conversion_rate() > b_arm.conversion_rate()*1.05:
         return 1, None
 
     if a_arm.total_samples() > 1000 and a_arm.total_samples() % 100 == 0 and a_arm.conversion_rate() < b_arm.conversion_rate() * .95:
@@ -469,4 +513,4 @@ def cellist(a_arm, b_arm):
 if __name__ == '__main__':
     my_helper = SpencerHelper()
     test_partial = partial(spencer_rule, helper=my_helper)
-    testbed.multi_test([test_partial], max_tests=500, plot=True, seed=None)
+    testbed.multi_test([certainty_or_count, certainty_or_count2, certainty_or_count3, certainty_or_count2], max_tests=500, plot=False, seed=None)
