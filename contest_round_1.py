@@ -365,8 +365,72 @@ def Triceratops(a_arm, b_arm):
     return None, None
 
 
+def buttered_toast(a_arm, b_arm, start_certainty=.8, end_certainty=.6, count=5000, final_certainty=.90):
+    if (sum(a_arm.counts) + sum(b_arm.counts)) % 100 == 0:
+        mrr = [5, 9, 30, 0]
+        priors = np.array([1, 1, 1, 1])
+        a_results = (np.random.dirichlet(a_arm.counts + priors, 10000) * mrr).sum(axis=1)
+        b_results = (np.random.dirichlet(b_arm.counts + priors, 10000) * mrr).sum(axis=1)
+
+        # add a rolling certainty requirement
+        m_certainty = start_certainty - ((start_certainty-end_certainty)/count * (sum(a_arm.counts) + sum(b_arm.counts)))
+
+        if sum(a_results < b_results) / len(a_results) > m_certainty:
+            return 2, None
+        elif sum(b_results < a_results) / len(a_results) > m_certainty:
+            return 1, None
+        elif sum(b_arm.counts) >= count/2:
+            if sum(a_results < b_results) / len(a_results) > final_certainty:
+                return 2, None
+            else:
+                return 1, None
+        else:
+            return None, .15
+    else:
+        return None, None
+
+
+def english_muffin(a_arm, b_arm, certainty=.70, count=4500, final_certainty=.90):
+    if (sum(a_arm.counts) + sum(b_arm.counts)) % 500 == 0:
+        mrr = [5, 9, 30, 0]
+        priors = np.array([1, 1, 1, 1])
+        a_results = (np.random.dirichlet(a_arm.counts + priors, 10000) * mrr).sum(axis=1)
+        b_results = (np.random.dirichlet(b_arm.counts + priors, 10000) * mrr).sum(axis=1)
+
+        if sum(a_results < b_results) / len(a_results) > certainty:
+            return 2, None
+        elif sum(b_results < a_results) / len(a_results) > certainty:
+            return 1, None
+        elif sum(b_arm.counts) >= count/2:
+            if sum(a_results < b_results) / len(a_results) > final_certainty:
+                return 2, None
+            else:
+                return 1, None
+        else:
+            return None, .15
+    else:
+        return None, None
+
+
+def one_rule_to_rule_them_all(a, b):
+    mrr = np.array([5, 9, 30, 0])
+
+    if a.total_samples() < 50 or b.total_samples() < 50:
+        return None, None
+    elif a.total_samples() + b.total_samples() > 6000:
+        return (1 if (sum(a.counts * mrr) / a.total_samples() > sum(b.counts * mrr) / b.total_samples()) else 2), None
+    else:
+        aExpected = 0
+        for x in range(0, 3):
+            aExpected += beta.rvs(a.counts[x] + 1, 1 + a.total_samples() - a.counts[x]) * mrr[x]
+        bExpected = 0
+        for x in range(0, 3):
+            bExpected += beta.rvs(b.counts[x] + 1, 1 + b.total_samples() - b.counts[x]) * mrr[x]
+        return None, (1 if aExpected > bExpected else 0)
+
+
 if __name__ == '__main__':
     my_helper = SpencerHelper()
     test_partial = partial(spencer_rule, helper=my_helper)
-    testbed.multi_test([test_partial, tim_dynamic_threshold, tim_thompson_sampling, dylans_rule, FacePuncher10o20, FacePuncher10o25, UtahRaptor, Triceratops,  ], max_tests=9999, plot=True,
+    testbed.multi_test([test_partial, tim_dynamic_threshold, tim_thompson_sampling, dylans_rule, FacePuncher10o20, FacePuncher10o25, UtahRaptor, Triceratops, buttered_toast, english_muffin, one_rule_to_rule_them_all], max_tests=9999, plot=True,
                        seed=np.random.random())
