@@ -2,6 +2,7 @@ import testbed1 as testbed
 from math import sqrt
 import numpy as np
 from functools import partial
+from scipy.stats import beta
 
 
 class SpencerHelper:
