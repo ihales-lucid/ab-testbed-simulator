@@ -334,6 +334,10 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.010, .00
         true_negative = test_result[(test_result['Choice'] == 'A') & (test_result['Actual Winner'] == 'A')]
         false_negative = test_result[(test_result['Choice'] == 'A') & (test_result['Actual Winner'] == 'B')]
 
+
+        m_regret = 0 if test_result['Total Number'].sum() == 0 else test_result.Regret.sum() / test_result['Total Number'].sum() * 1000000
+        m_revenue = 0 if test_result['Total Number'].sum() == 0 else test_result[['A Revenue', 'B Revenue']].sum().sum() / test_result['Total Number'].sum() * 1000000
+
         temp_agg = [
             {'Test Name': test_name, 'Test Count': len(test_result), 'People Count': test_result['Total Number'].sum(),
              'True Positive': len(true_positive),
@@ -349,9 +353,8 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.010, .00
              'Negative Predictive Value': (
              len(true_negative) / (len(true_negative) + len(false_negative)) if (len(true_negative) + len(
                  false_negative)) != 0 else 0),
-             'Regret': test_result.Regret.sum() / test_result['Total Number'].sum() * 1000000,
-             'Revenue': test_result[['A Revenue', 'B Revenue']].sum().sum() / test_result[
-                 'Total Number'].sum() * 1000000,
+             'Regret': m_regret,
+             'Revenue': m_revenue,
              'True Revenue': test_result['True Revenue'].sum(),
              'Estimated Revenue': test_result['Estimated Revenue'].sum(),
              'Optimal Value': optimal_value
@@ -364,25 +367,28 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.010, .00
         agg_test_results = pd.concat([agg_test_results, temp_agg], ignore_index=True)
         # Plot Stuff for each test
         if plot:
-            ind_figure = plt.figure(3)
-            ind_figure.add_subplot(111)
-            ind_figure.axes[0].set_xlabel("True Difference in EV")
-            ind_figure.axes[0].set_ylabel('Measured Difference in EV')
-            ind_figure.axes[0].set_title(test_name)
-            ind_figure.axes[0].scatter(false_negative['EV B'] - false_negative['EV A'],
-                                       false_negative['EV B Measured'] - false_negative['EV A Measured'],
-                                       color='orange')
-            ind_figure.axes[0].scatter(true_positive['EV B'] - true_positive['EV A'],
-                                       true_positive['EV B Measured'] - true_positive['EV A Measured'],
-                                       color='darkgreen')
-            ind_figure.axes[0].scatter(true_negative['EV B'] - true_negative['EV A'],
-                                       true_negative['EV B Measured'] - true_negative['EV A Measured'], color='blue')
-            ind_figure.axes[0].scatter(false_positive['EV B'] - false_positive['EV A'],
-                                       false_positive['EV B Measured'] - false_positive['EV A Measured'], color='red')
-            filename = 'results/' + test_name + '/' + time.strftime('%Y%m%d_%H-%M_') + test_name + ".png"
-            os.makedirs(os.path.dirname(filename), exist_ok=True)
-            ind_figure.savefig(filename)
-            plt.close(ind_figure)
+            try:
+                ind_figure = plt.figure(3)
+                ind_figure.add_subplot(111)
+                ind_figure.axes[0].set_xlabel("True Difference in EV")
+                ind_figure.axes[0].set_ylabel('Measured Difference in EV')
+                ind_figure.axes[0].set_title(test_name)
+                ind_figure.axes[0].scatter(false_negative['EV B'] - false_negative['EV A'],
+                                           false_negative['EV B Measured'] - false_negative['EV A Measured'],
+                                           color='orange')
+                ind_figure.axes[0].scatter(true_positive['EV B'] - true_positive['EV A'],
+                                           true_positive['EV B Measured'] - true_positive['EV A Measured'],
+                                           color='darkgreen')
+                ind_figure.axes[0].scatter(true_negative['EV B'] - true_negative['EV A'],
+                                           true_negative['EV B Measured'] - true_negative['EV A Measured'], color='blue')
+                ind_figure.axes[0].scatter(false_positive['EV B'] - false_positive['EV A'],
+                                           false_positive['EV B Measured'] - false_positive['EV A Measured'], color='red')
+                filename = 'results/' + test_name + '/' + time.strftime('%Y%m%d_%H-%M_') + test_name + ".png"
+                os.makedirs(os.path.dirname(filename), exist_ok=True)
+                ind_figure.savefig(filename)
+                plt.close(ind_figure)
+            except ValueError:
+                pass
 
     for p in m_procs:
         p.join()
