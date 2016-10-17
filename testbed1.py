@@ -9,8 +9,9 @@ from matplotlib import pyplot as plt
 from multiprocessing import Queue, Process
 import os
 
-
 # This is a test arm class that lets me deal with test arms in a better way
+from sklearn.cluster.mean_shift_ import estimate_bandwidth
+
 
 class TestArm:
     def __init__(self):
@@ -64,7 +65,7 @@ def get_p_b_optimal(a_arm, b_arm, a_priors = [1, 1, 1, 1], b_priors = [1, 1, 1, 
 
 
 def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_default=[.010, .0082, .0025],
-             max_tests=10000, m_axis=None, seed=False):
+             max_tests=10000, max_people=1000000, test_size=50000, m_axis=None, seed=False):
     try:
         stopping_rule.__name__
     except AttributeError:
@@ -123,17 +124,21 @@ def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_de
     a_arm = TestArm()
     b_arm = TestArm()
 
+    test_size_counter = 0
     people_count = 0
     test_count = 1
     proportion_a = .5
     proportion_a_prev = .5
     results = []
 
-    while test_count <= max_tests:
+    while test_count <= max_tests and people_count <= max_people:  # Added max-people to the count
 
         # Get a new sample and increment the people count
         get_sample(proportion_a)
         people_count += 1
+
+        # This counter is a fast way of keeping track of how many people have been in each test
+        test_size_counter += 1
 
         # Pass the results of the test (tests must accept two lists of len = 4 and return 1, 2, or None)
         # eventually have the second return var be T-A Prop.
@@ -143,7 +148,25 @@ def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_de
         else:
             proportion_a_prev = proportion_a
 
+        if test_size_counter >= test_size:
+            choice = 3  # For now this is the easy way to do it. There should probably be a different choice...
+
         if choice:
+            if choice == 3:
+                m_choice = 'No Choice'
+            elif choice == 2:
+                m_choice = 'B'
+            elif choice == 1:
+                m_choice = 'A'
+
+            # Calculate some per-test values
+            test_value = calculate_revenue(a_arm) + calculate_revenue(b_arm) + (ev(p_a) if choice == 1 else ev(
+                p_b)) * (test_size - test_size_counter)
+            optimal_test_value = ev(p_a) * test_size if ev(p_a) > ev(p_b) else ev(p_b) * test_size
+            estimated_revenue = calculate_revenue(a_arm) + calculate_revenue(b_arm) + (
+            ((calculate_revenue(a_arm) / test_size_counter) * (test_size - test_size_counter)) if choice == 1 else (
+            (calculate_revenue(b_arm) / test_size_counter) * (test_size - test_size_counter)))
+
             temp_results = {'Test Name': stopping_rule.__name__, 'Test Number': test_count, 'A Basic': p_a[0],
                             ' A Pro': p_a[1],
                             'A Team': p_a[2], 'A Free': p_a[3], 'B Basic': p_b[0], ' B Pro': p_b[1],
@@ -152,17 +175,20 @@ def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_de
                             'B Success': b_arm.total_conversions(),
                             'B Number': b_arm.total_samples(),
                             'Total Number': a_arm.total_samples() + b_arm.total_samples(),
-                            'Choice': 'A' if choice == 1 else 'B', 'Actual Winner': 'A' if ev(p_a) > ev(p_b) else 'B',
+                            'Choice': m_choice, 'Actual Winner': 'A' if ev(p_a) > ev(p_b) else 'B',
                             'A Revenue': calculate_revenue(a_arm), 'B Revenue': calculate_revenue(b_arm),
                             'Regret': (ev(p_a) - ev(p_b)) * b_arm.total_samples() if ev(p_a) > ev(p_b) else (ev(
                                 p_b) - ev(
                                 p_a)) * a_arm.total_samples(),
                             'EV A Measured': calculate_revenue(a_arm) / a_arm.total_samples(),
                             'EV B Measured': calculate_revenue(b_arm) / b_arm.total_samples(),
-                            'EV True Incremental': ev(p_b) - ev(p_a) if choice == 2 else 0,
-                            'EV Measured Incremental': calculate_revenue(
-                                b_arm) / b_arm.total_samples() - calculate_revenue(
-                                a_arm) / a_arm.total_samples() if choice == 2 else 0}
+# I think that these lines aren't really relevant anymore
+#                            'EV True Incremental': ev(p_b) - ev(p_a) if choice == 2 else 0,     # This may not work...
+#                            'EV Measured Incremental': calculate_revenue(
+#                                b_arm) / b_arm.total_samples() - calculate_revenue(
+#                                a_arm) / a_arm.total_samples() if choice == 2 else 0,       # This also may not work...
+                            'True Revenue': test_value, 'Estimated Revenue': estimated_revenue,
+                            'Optimal Value': optimal_test_value}
 
             results.append(temp_results)  # This is now a list of dicts that can easily be appended to a DataFrame
 
@@ -175,6 +201,8 @@ def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_de
                     m_color = 'blue'
                 elif temp_results['Choice'] == 'B' and temp_results['Actual Winner'] == 'B':
                     m_color = 'darkgreen'
+                else:
+                    m_color = 'black'
 
                 x = temp_results['EV B'] - temp_results['EV A']
                 y = temp_results['EV B Measured'] - temp_results['EV A Measured']
@@ -188,6 +216,9 @@ def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_de
             # Increment test count
             test_count += 1
 
+            # Reset test_size_counter
+            test_size_counter = 0
+
             # Generate a new Test
             p_a = prob_a[test_count]
             p_b = prob_b[test_count]
@@ -200,28 +231,31 @@ def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_de
             proportion_a = 0.5
             proportion_a_prev = 0.5
 
-    q.put((results, stopping_rule.__name__))
+    optimal_rule_value = np.maximum((prob_b[:max_tests] * mrr).sum(axis=1), (prob_a[0]*mrr).sum()).sum() * test_size
+
+    q.put((results, stopping_rule.__name__, optimal_rule_value))
     plot_q.put(('finished',))
 
 
 def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.010, .0082, .0025], max_tests=1000,
-               plot=True, seed=False):
+               max_people=10000, test_size=50000, plot=True, seed=False):
     q = Queue()
     plot_q = Queue()
 
+# Leave these in for Column Order
     ind_test_results = pd.DataFrame(
-        columns=['Test Name', 'Test Number', 'A Basic', ' A Pro', 'A Team', 'A Free', 'B Basic', ' B Pro',
-                 'B Team', 'B Free', 'EV A', 'EV B', 'A Success', 'A Number', 'B Success',
-                 'B Number', 'Total Number', 'Choice', 'Actual Winner', 'A Revenue', 'B Revenue',
-                 'Regret', 'EV A Measured', 'EV B Measured', 'EV True Incremental',
-                 'EV Measured Incremental'])
+            columns=['Test Name', 'Test Number', 'A Basic', ' A Pro', 'A Team', 'A Free', 'B Basic', ' B Pro',
+                     'B Team', 'B Free', 'EV A', 'EV B', 'A Success', 'A Number', 'B Success',
+                     'B Number', 'Total Number', 'Choice', 'Actual Winner', 'A Revenue', 'B Revenue',
+                     'Regret', 'EV A Measured', 'EV B Measured', 'EV True Incremental',
+                     'EV Measured Incremental', 'True Revenue', 'Estimated Revenue', 'Optimal Value'])
     agg_test_results = pd.DataFrame(
-        columns=['Test Name', 'Test Count', 'People Count', 'True Positive', 'False Positive',
+            columns=['Test Name', 'Test Count', 'People Count', 'True Positive', 'False Positive',
                  'True Negative', 'False Negative', 'True Positive Rate',
                  'True Negative Rate', 'Positive Predictive Value',
-                 'Negative Predictive Value', 'Regret/Million', 'Revenue/Million', 'Actual Average EV Lift',
+                 'Negative Predictive Value', 'Regret', 'Revenue', 'Actual Average EV Lift',
                  'Measured Average EV Lift', 'Actual Total EV Lift/Million',
-                 'Measured Total EV Lift/Million'])
+                 'Measured Total EV Lift/Million', 'True Revenue', 'Estimated Revenue', 'Optimal Value'])
 
     axes_count = 0
     m_procs = []
@@ -231,7 +265,7 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.010, .00
         else:
             axis_num = None
         # Actually Run the tests
-        m_procs.append(Process(target=run_test, args=(rule, q, plot_q, mrr, n, p_baseline, max_tests, axis_num, seed)))
+        m_procs.append(Process(target=run_test, args=(rule, q, plot_q, mrr, n, p_baseline, max_tests, max_people, test_size, axis_num, seed)))
 
         if plot:
             axes_count += 1
@@ -277,9 +311,8 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.010, .00
 
         # Show plots in a maximized window
 
-        #fig_manager = plt.get_current_fig_manager()
-        #fig_manager.window.showMaximized()
-
+        # fig_manager = plt.get_current_fig_manager()
+        # fig_manager.window.showMaximized()
 
         finished_count = 0
         point_counter = 0
@@ -305,7 +338,7 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.010, .00
         multi_plt.savefig(filename)
 
     for p in m_procs:
-        test_data, test_name = q.get()
+        test_data, test_name, optimal_value = q.get()
         test_result = pd.DataFrame(test_data, columns=list(ind_test_results.columns))
         ind_test_results = pd.concat([ind_test_results, test_result], ignore_index=True)
 
@@ -313,30 +346,35 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.010, .00
         false_positive = test_result[(test_result['Choice'] == 'B') & (test_result['Actual Winner'] == 'A')]
         true_negative = test_result[(test_result['Choice'] == 'A') & (test_result['Actual Winner'] == 'A')]
         false_negative = test_result[(test_result['Choice'] == 'A') & (test_result['Actual Winner'] == 'B')]
-        temp_agg = [[test_name, len(test_result), test_result['Total Number'].sum(), len(true_positive),
-                     len(false_positive),
-                     len(true_negative), len(false_negative),
-                     (len(true_positive) / (len(true_positive) + len(false_negative)) if (
+
+
+        temp_agg = [{'Test Name': test_name, 'Test Count': len(test_result), 'People Count': test_result['Total Number'].sum(), 'True Positive': len(true_positive),
+                     'False Positive': len(false_positive),
+                     'True Negative': len(true_negative), 'False Negative': len(false_negative),
+                     'True Positive Rate': (len(true_positive) / (len(true_positive) + len(false_negative)) if (
                          len(true_positive) + len(false_negative) != 0) else 0),
-                     (len(true_negative) / (len(true_negative) + len(false_positive)) if (
+                     'True Negative Rate': (len(true_negative) / (len(true_negative) + len(false_positive)) if (
                          len(true_negative) + len(false_positive) != 0) else 0),
-                     (len(true_positive) / (len(true_positive) + len(false_positive)) if (len(true_positive) + len(
+                     'Positive Predictive Value': (len(true_positive) / (len(true_positive) + len(false_positive)) if (len(true_positive) + len(
                          false_positive)) != 0 else 0),
-                     (len(true_negative) / (len(true_negative) + len(false_negative)) if (len(true_negative) + len(
+                     'Negative Predictive Value': (len(true_negative) / (len(true_negative) + len(false_negative)) if (len(true_negative) + len(
                          false_negative)) != 0 else 0),
-                     test_result.Regret.sum() / test_result['Total Number'].sum() * 1000000,
-                     test_result[['A Revenue', 'B Revenue']].sum().sum() / test_result['Total Number'].sum() * 1000000,
-                     (test_result[test_result['Choice'] == 'B']['EV B'] / test_result[test_result['Choice'] == 'B'][
-                         'EV A'] - 1).mean(),
-                     (test_result[test_result['Choice'] == 'B']['EV B Measured'] / test_result[test_result[
-                                                                                                   'Choice'] == 'B'][
-                         'EV A Measured'] - 1).mean(),
-                     (test_result[test_result['Choice'] == 'B']['EV B'] - test_result[test_result['Choice'] == 'B'][
-                         'EV A']).sum() / test_result['Total Number'].sum() * 1000000,
-                     (test_result[test_result['Choice'] == 'B']['EV B Measured'] - test_result[test_result[
-                                                                                                   'Choice'] == 'B'][
-                         'EV A Measured']).sum() / test_result['Total Number'].sum() * 1000000
-                     ]]
+                     'Regret': test_result.Regret.sum() / test_result['Total Number'].sum() * 1000000,
+                     'Revenue': test_result[['A Revenue', 'B Revenue']].sum().sum() / test_result['Total Number'].sum() * 1000000,
+# I think that these aren't really relevant.
+#                     'Actual Average EV Lift':(test_result[test_result['Choice'] == 'B']['EV B'] / test_result[test_result['Choice'] == 'B'][
+#                         'EV A'] - 1).mean(),
+#                     'Measured Average EV Lift': (test_result[test_result['Choice'] == 'B']['EV B Measured'] / test_result[test_result[
+#                                                                                                   'Choice'] == 'B'][
+#                         'EV A Measured'] - 1).mean(),
+#                     'Actual Total EV Lift': (test_result[test_result['Choice'] == 'B']['EV B'] - test_result[test_result['Choice'] == 'B'][
+#                         'EV A']).sum() / test_result['Total Number'].sum() * 1000000,
+#                     'Measured Total EV Lift': (test_result[test_result['Choice'] == 'B']['EV B Measured'] - test_result[test_result[
+#                                                                                                   'Choice'] == 'B'][
+#                         'EV A Measured']).sum() / test_result['Total Number'].sum() * 1000000,
+                     'True Revenue': test_result['True Revenue'].sum(), 'Estimated Revenue': test_result['Estimated Revenue'].sum(),
+                     'Optimal Value': optimal_value
+                     }]
         temp_agg = pd.DataFrame(temp_agg, columns=list(agg_test_results.columns))
         filename = 'results/' + test_name + '/' + time.strftime('%Y%m%d_%H-%M_') + test_name + ".csv"
         os.makedirs(os.path.dirname(filename), exist_ok=True)
