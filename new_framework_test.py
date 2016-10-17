@@ -189,4 +189,4 @@ def spencer_rule(a_arm, b_arm, helper):
 if __name__ == '__main__':
     my_helper = SpencerHelper()
     test_partial = partial(spencer_rule, helper=my_helper)
-    testbed.multi_test([test_partial], max_tests=10, max_people=50000, test_size=10000, plot=True, seed=5)
+    testbed.multi_test([test_partial], max_tests=10, max_people=100001, test_size=10000, plot=True, seed=5)
