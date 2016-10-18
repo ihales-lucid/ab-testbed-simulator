@@ -22,14 +22,14 @@ numbers. Be sure to specify if you would like a "one sided" test rather than a '
 def example_rule(a_arm, b_arm):
     """This is an exceptionally bad stopping rule, but it should give you an idea"""
 
-    if a_arm.total_samples() + b_arm.total_samples() > 1000:
+    if (a_arm.total_samples() + b_arm.total_samples()) % 10000 == 0:
         p_value = testbed.get_p_value(a_arm.total_conversions(), a_arm.total_samples(), b_arm.total_conversions(),
                                       b_arm.total_samples())
         if p_value < .05:
             return 2, None
         elif p_value > .95:
             return 1, None
-        elif a_arm.total_samples() + b_arm.total_samples() > 50000:
+        if a_arm.total_samples() + b_arm.total_samples() >= 50000:
             return 1, None
         else:
             return None, None
@@ -39,10 +39,13 @@ def example_rule(a_arm, b_arm):
 
 if __name__ == '__main__':
     ''' This is where you actually run the stopping rules. The first arg is a list of the rules that you want to test.
-    max_tests is the number of tests that you want to run for each arm. plot plots the output. Seed is the seed for the
+    max_tests is the number of tests that you want to run for each rule. plot plots the output. Seed is the seed for the
     random test generator (so that you can compare each stopping rule using the same test data). A seed of False or None
-    won't set any seed, but any other value will be used for the seed itself.
+    won't set any seed, but any other value will be used for the seed itself. Max_people represents the maximum number
+    of people that can be tested. Test_size is the time over which the value of the test will be measured.
 
     The resulting data/graphs will be stored under the results folder on your local machine. '''
 
-    testbed.multi_test([example_rule, example_rule], max_tests=10, plot=True, seed=True)
+    if __name__ == '__main__':
+        testbed.multi_test([example_rule], max_tests=1000, plot=False, max_people=225000000,
+                           test_size=1000000, seed=900)
