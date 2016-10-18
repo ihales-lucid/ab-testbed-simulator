@@ -128,6 +128,9 @@ def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_de
     proportion_a_prev = .5
     results = []
 
+    # Use this value on a test-by-test basis to calculate lift over baseline.
+    baseline_value = (prob_a[0] * np.array(mrr)).sum() * test_size
+
     while test_count <= max_tests and people_count <= max_people:  # Added max-people to the count
 
         # Get a new sample and increment the people count
@@ -164,6 +167,10 @@ def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_de
                 ((calculate_revenue(a_arm) / a_arm.total_samples()) * (
                 test_size - test_size_counter)) if choice == 1 else (
                     (calculate_revenue(b_arm) / b_arm.total_samples()) * (test_size - test_size_counter)))
+            try:
+                optimal_captured = (test_value - baseline_value)/(optimal_test_value-baseline_value)
+            except ZeroDivisionError:
+                optimal_captured = 'Optimal = Baseline'
 
             temp_results = {'Test Name': stopping_rule.__name__, 'Test Number': test_count, 'A Basic': p_a[0],
                             ' A Pro': p_a[1],
@@ -181,7 +188,7 @@ def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_de
                             'EV A Measured': calculate_revenue(a_arm) / a_arm.total_samples(),
                             'EV B Measured': calculate_revenue(b_arm) / b_arm.total_samples(),
                             'True Revenue': test_value, 'Estimated Revenue': estimated_revenue,
-                            'Optimal Value': optimal_test_value}
+                            'Optimal Value': optimal_test_value, '% of Optimal Captured': optimal_captured}
 
             results.append(temp_results)  # This is now a list of dicts that can easily be appended to a DataFrame
 
@@ -240,13 +247,13 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.010, .00
         columns=['Test Name', 'Test Number', 'A Basic', ' A Pro', 'A Team', 'A Free', 'B Basic', ' B Pro',
                  'B Team', 'B Free', 'EV A', 'EV B', 'A Success', 'A Number', 'B Success',
                  'B Number', 'Total Number', 'Choice', 'Actual Winner', 'A Revenue', 'B Revenue',
-                 'Regret', 'EV A Measured', 'EV B Measured', 'True Revenue', 'Estimated Revenue', 'Optimal Value'])
+                 'Regret', 'EV A Measured', 'EV B Measured', 'True Revenue', 'Estimated Revenue', 'Optimal Value', '% of Optimal Captured'])
     agg_test_results = pd.DataFrame(
         columns=['Test Name', 'Test Count', 'People Count', 'True Positive', 'False Positive',
                  'True Negative', 'False Negative', 'True Positive Rate',
                  'True Negative Rate', 'Positive Predictive Value',
                  'Negative Predictive Value', 'Regret', 'Revenue', 'True Revenue', 'Estimated Revenue',
-                 'Optimal Value'])
+                 'Optimal Value', '% of Optimal Captured'])
 
     axes_count = 0
     m_procs = []
@@ -334,9 +341,13 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.010, .00
         true_negative = test_result[(test_result['Choice'] == 'A') & (test_result['Actual Winner'] == 'A')]
         false_negative = test_result[(test_result['Choice'] == 'A') & (test_result['Actual Winner'] == 'B')]
 
-
         m_regret = 0 if test_result['Total Number'].sum() == 0 else test_result.Regret.sum() / test_result['Total Number'].sum() * 1000000
         m_revenue = 0 if test_result['Total Number'].sum() == 0 else test_result[['A Revenue', 'B Revenue']].sum().sum() / test_result['Total Number'].sum() * 1000000
+
+        try:
+            m_captured_optimal = (test_result['True Revenue'].sum() - ((np.array(p_baseline) * mrr[:-1]).sum() * max_tests * test_size)) / (optimal_value - (np.array(p_baseline) * mrr[:-1]).sum() * max_tests * test_size)
+        except ZeroDivisionError:
+            m_captured_optimal = 'Optimal = Baseline'
 
         temp_agg = [
             {'Test Name': test_name, 'Test Count': len(test_result), 'People Count': test_result['Total Number'].sum(),
@@ -357,7 +368,7 @@ def multi_test(decision_rules, mrr=[5, 9, 30, 0], n=10000, p_baseline=[.010, .00
              'Revenue': m_revenue,
              'True Revenue': test_result['True Revenue'].sum(),
              'Estimated Revenue': test_result['Estimated Revenue'].sum(),
-             'Optimal Value': optimal_value
+             'Optimal Value': optimal_value, '% of Optimal Captured': m_captured_optimal
              }]
         temp_agg = pd.DataFrame(temp_agg, columns=list(agg_test_results.columns))
         filename = 'results/' + test_name + '/' + time.strftime('%Y%m%d_%H-%M_') + test_name + ".csv"
