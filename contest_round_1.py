@@ -433,5 +433,5 @@ def one_rule_to_rule_them_all(a, b):
 if __name__ == '__main__':
     my_helper = SpencerHelper()
     test_partial = partial(spencer_rule, helper=my_helper)
-    testbed.multi_test([test_partial, FacePuncher10o20, FacePuncher10o25, UtahRaptor, Triceratops, buttered_toast, english_muffin], max_tests=100, plot=True, max_people=10000, test_size=10000000,
-                       seed=np.random.randint(0, 1000000000))
+    testbed.multi_test([test_partial, UtahRaptor, Triceratops], max_tests=1000, plot=False, max_people=225000000, test_size=1000000,
+                       seed=900)
