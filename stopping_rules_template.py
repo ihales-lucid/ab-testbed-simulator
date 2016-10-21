@@ -47,5 +47,5 @@ if __name__ == '__main__':
     The resulting data/graphs will be stored under the results folder on your local machine. '''
 
     if __name__ == '__main__':
-        testbed.multi_test([example_rule], max_tests=1000, plot=False, max_people=225000000,
-                           test_size=1000000, seed=900)
+        testbed.multi_test([example_rule], max_tests=1300, plot=False, max_people=460000000,
+                           test_size=5000000, seed=False)
