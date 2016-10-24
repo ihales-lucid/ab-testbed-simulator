@@ -1,7 +1,7 @@
 import numpy as np
 from functools import partial
 import testbed1 as testbed
-from math import floor
+from math import floor, sqrt
 
 
 # Max sample or 99% certain (with test size normalization based on max people)
