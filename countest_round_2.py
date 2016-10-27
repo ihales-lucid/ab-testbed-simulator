@@ -277,6 +277,56 @@ def KRSone(a_arm, b_arm):
     return None, None
 
 
+def tim_sequential_evanmiller_twosided(a_arm, b_arm):
+    n = 7360
+    t = b_arm.total_conversions()
+    c = a_arm.total_conversions()
+    mrr = [5, 9, 30, 0]
+
+    if (t - c) >= 2.25 * sqrt(n):
+        return 2, None
+    elif (c - t) >= 2.25 * sqrt(n):
+        return 1, None
+    elif (t + c) >= n:
+        if (np.array(a_arm.counts) * mrr).sum() > (np.array(b_arm.counts) * mrr).sum():
+            return 1, None
+        else:
+            return 2, None
+    else:
+        return None, None
+
+
+def tim_thompson_sampling(a_arm, b_arm):
+    mrr = [5, 9, 30, 0]
+    threshold = 0.95
+    max_samples = 368000
+
+    a_prior = np.array([1, 1, 1, 1])
+    b_prior = a_prior
+
+    total_samples = a_arm.total_samples() + b_arm.total_samples()
+
+    if total_samples % 1000 == 0:
+
+        p_b_optimal = testbed.get_p_b_optimal(a_arm, b_arm)
+
+        # print("Probability that B is optimal:" + str(p_b_optimal))
+
+        if p_b_optimal > threshold:
+            return 2, None
+        elif p_b_optimal < (1 - threshold):
+            return 1, None
+        elif a_arm.total_samples() + b_arm.total_samples() >= max_samples:
+            if p_b_optimal > 0.5:
+                return 2, None
+            else:
+                return 1, None
+        else:
+            return None, (1 - p_b_optimal)
+    else:
+        return None, None
+
+
 if __name__ == '__main__':
     ''' This is where you actually run the stopping rules. The first arg is a list of the rules that you want to test.
     max_tests is the number of tests that you want to run for each rule. plot plots the output. Seed is the seed for the
@@ -291,5 +341,5 @@ if __name__ == '__main__':
         test_partial = partial(spencer_rule, helper=my_helper)
         isaac_helper = IsaacHelper()
         isaac_partial = partial(corn_flakes, m_helper=isaac_helper)
-        testbed.multi_test([test_partial, isaac_partial, parfait, KanyeWest, KRSone], max_tests=1300, plot=False,
-                           max_people=460000000, test_size=5000000, seed=564654654)
+        testbed.multi_test([test_partial, isaac_partial, parfait, KanyeWest, KRSone, tim_thompson_sampling, tim_sequential_evanmiller_twosided], max_tests=1300, plot=False,
+                           max_people=460000000, test_size=5000000, seed=1)
