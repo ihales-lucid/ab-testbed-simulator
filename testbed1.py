@@ -63,7 +63,7 @@ def get_p_b_optimal(a_arm, b_arm, a_priors = [1, 1, 1, 1], b_priors = [1, 1, 1, 
 
 
 def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_default=[.010, .0082, .0025],
-             max_tests=10000, max_people=1000000, test_size=50000, m_axis=None, seed=False):
+             max_tests=10000, max_people=1000000, test_size=50000, m_axis=None, seed=False, testing_cadence=20000):
     try:
         stopping_rule.__name__
     except AttributeError:
@@ -216,6 +216,13 @@ def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_de
 
             # Increment test count
             test_count += 1
+
+
+
+            # Add people so that no test can have fewer people than the cadence rate
+            if test_size_counter < testing_cadence:
+                people_count += testing_cadence - test_size_counter
+
 
             # Reset test_size_counter
             test_size_counter = 0
