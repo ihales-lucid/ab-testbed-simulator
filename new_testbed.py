@@ -90,8 +90,7 @@ def run_test(rule, max_people, max_concurrent, cadence, seed, q):
 
     # Do what we need to do to scale the TB data
     def scale_tb(m_raw):
-        #        return np.array(tb_raw) * get_scale_factor() + 1
-        return np.array(m_raw) + 1
+        return np.array(m_raw) * get_scale_factor() + 1
 
     # Calculate the "scale factor"
     def get_scale_factor(max_difference=np.array([1, 1, 1])):
