@@ -97,7 +97,7 @@ def run_test(stopping_rule, q, plot_q, mrr=[5, 9, 30, 0], n=10000, p_baseline_de
     # Control the probability of B winning
 
     def get_copula(shift=.98, scale=9000, uncertainty_ind=.8, uncertainty_team=.6, baseline=[.010, .0082, .0025],
-                   cop_n=10000):
+                   cop_n=50000):
 
         corr_matrix = np.array([[1, 0.89528368 * uncertainty_ind, 0.824624949 * uncertainty_team],
                                 [0.89528368 * uncertainty_ind, 1, 0.831348201 * uncertainty_team],

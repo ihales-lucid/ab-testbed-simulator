@@ -1,5 +1,11 @@
 import numpy as np
+import pandas as pd
 from scipy.stats import norm, beta
+from multiprocessing import Queue, Process
+import os
+import time
+
+mrr = np.array([5, 9, 30, 0])
 
 
 # Test Class
@@ -22,9 +28,21 @@ class ABTest:
     def update(self, arm, level):
         self.counts[arm][level] += 1
 
-    def finalize_test(self, result):
+    def finalize_test(self, result, count, original_baseline, new_baseline, tb_scaled):
         # Do finalize stuff here
-        pass
+        m_results = {'Test Count': count,
+                     'Test Name': test_rule.__name__,
+                     'Samples': self.counts.sum(),
+                     'Best Arm': 'B' if (((tb_scaled * original_baseline) * mrr[:3]).sum() > (original_baseline * mrr[:3]).sum() - 1) else 'A',
+                     'Choice': 'A' if result == 0 else 'B',
+                     'Observed Difference': (self.counts[1] * mrr).sum() / (self.counts[0] * mrr).sum() - 1,
+                     'Original Baseline Value': (original_baseline * mrr[:3]).sum(),
+                     'New Baseline Value': (new_baseline * mrr[:3]).sum(),
+                     'Test-Time Revenue': (self.counts * mrr).sum(),
+                     #                     'T-A Value': (original_baseline * mrr[:3]).sum(),
+                     #                     'T-B Value': (tb_scaled * original_baseline * mrr[:3]).sum()
+                     }
+        return m_results
 
     def set_prop_a(self, prop_a):
         self.prop_a = prop_a
@@ -40,7 +58,11 @@ class ABTest:
 
 
 # Run Tests
-def run_test(rule, max_people, max_concurrent, cadence):
+def run_test(rule, max_people, max_concurrent, cadence, seed, q):
+    """ This function runs tests against the rule in 'rule' parameter. Max people is the total number of people to test.
+    max_concurrent is the total number of tests that can run concurrently. Cadence is how many people need to be tested
+    before a new batch of tests can start. Seed is the random seed for the test generation. """
+
     def add_tests(test_array):
         # Reference the T-B Counter (a pointer for tb_vector access
         nonlocal tb_counter
@@ -52,6 +74,7 @@ def run_test(rule, max_people, max_concurrent, cadence):
     # Get T-B Vector - Difference from baseline
     def get_copula(shift=.98, scale=9000, uncertainty_ind=.8, uncertainty_team=.6, m_baseline=[.010, .0082, .0025],
                    cop_n=50000):
+        np.random.seed(seed)  # Add a seed for random number gen.
         corr_matrix = np.array([[1, 0.89528368 * uncertainty_ind, 0.824624949 * uncertainty_team],
                                 [0.89528368 * uncertainty_ind, 1, 0.831348201 * uncertainty_team],
                                 [0.824624949 * uncertainty_team, 0.831348201 * uncertainty_team, 1]])
@@ -66,8 +89,9 @@ def run_test(rule, max_people, max_concurrent, cadence):
         return m_dist
 
     # Do what we need to do to scale the TB data
-    def scale_tb(tb_raw):
-        return np.array(tb_raw) * get_scale_factor() + 1
+    def scale_tb(m_raw):
+        #        return np.array(tb_raw) * get_scale_factor() + 1
+        return np.array(m_raw) + 1
 
     # Calculate the "scale factor"
     def get_scale_factor(max_difference=np.array([1, 1, 1])):
@@ -105,55 +129,125 @@ def run_test(rule, max_people, max_concurrent, cadence):
     # Start the main testing loop
     while people_count <= max_people:
         if people_count % cadence == 0:
-            print('cadence')
             add_tests(m_tests)
-
         # Start a new person
         people_count += 1
 
         # Get test assignment sand apply a scale factor to the T-B assignments
         test_assignments = np.array([m_test.get_assignment() for m_test in m_tests])
         test_probabilities = np.array(
-            [([1, 1, 1]) if np.array_equal(x, [0, 0, 0]) else scale_tb(x) for x in test_assignments])
+            [baseline if np.array_equal(x, [0, 0, 0]) else scale_tb(x) for x in test_assignments])
 
         # Get the vector of combined probabilities for the person
         combined_probability = test_probabilities.prod(axis=int(0)) * baseline
 
         # Add the probability of Free
-        np.append(combined_probability, 1 - np.array(combined_probability).sum())
+        combined_probability = np.append(combined_probability, 1 - np.array(combined_probability).sum())
 
         # Choose the winner
         sample_result = np.argmax(np.random.multinomial(1, combined_probability))
 
         # Update each test with the winner counts
         for i, x in enumerate(m_tests):
-            x.update(0 if np.array_equal(test_assignments[i], [0, 0, 0, 0]) else 1, sample_result)
-            i += 1
+            x.update(0 if np.array_equal(test_assignments[i], [0, 0, 0]) else 1, sample_result)
 
         # We've now chosen the winner and updated the tests to reflect the winner. Now run the test arms on the winners.
+        # del_list is a list of tests to drop (because they've been called
 
+        del_list = []
         for i, x in enumerate(m_tests):
             result = rule(x)
             if result is not None:
                 test_count += 1
-                m_results.append(x.finalize_test(result, test_count))
-                m_tests.remove(x)
-
-                # Update the baseline based on the scaled value of this test
-                baseline *= (
+                new_baseline = baseline * (
                     1 if np.array_equal(test_assignments[i], [0, 0, 0]) else scale_tb(test_assignments[i]))
+                m_results.append(
+                    x.finalize_test(result, test_count, baseline, new_baseline, scale_tb(x.tb_raw)))
+                del_list.append(i)
+                # Update the baseline based on the scaled value of this test
+                baseline = new_baseline
                 print('Test #' + str(test_count) + ' completed. ' + str(people_count) + ' people tested so far.')
-                print(baseline, original_baseline)
 
-    print(test_count, people_count)
-    print(m_results)
+        # Drop called tests
+        if len(del_list) > 0:
+            del_list.sort(reverse=True)
+            for i in del_list:
+                del m_tests[i]
+
+    q.put(m_results)
+
+
+def multi_test(rules, max_people, max_concurrent, cadence, seed=None):
+    q = Queue()
+
+    ind_results = pd.DataFrame()
+    agg_results = pd.DataFrame()
+
+    # Create a new process for each stopping rule
+    m_procs = []
+    for rule in rules:
+        m_procs.append(Process(target=run_test, args=(rule, max_people, max_concurrent, cadence, seed, q)))
+
+    # Start all stopping rule processes
+    for p in m_procs:
+        p.start()
+
+    for p in m_procs:
+        test_results = q.get()  # This gets the list of dicts of individual test results ({column: value})
+        temp_results = pd.DataFrame(test_results)
+        ind_results = pd.concat([ind_results, temp_results], ignore_index=True)  # Add the individual test results
+
+        # Now lets get the AGG data
+        true_positive = temp_results[(temp_results['Choice'] == 'B') & (temp_results['Best Arm'] == 'B')]
+        false_positive = temp_results[(temp_results['Choice'] == 'B') & (temp_results['Best Arm'] == 'A')]
+        true_negative = temp_results[(temp_results['Choice'] == 'A') & (temp_results['Best Arm'] == 'A')]
+        false_negative = temp_results[(temp_results['Choice'] == 'A') & (temp_results['Best Arm'] == 'B')]
+
+        m_revenue = temp_results['Test-Time Revenue'].sum()
+
+        temp_agg = [
+            {
+                'Test Name': temp_results['Test Name'].values[0],
+                'Test Count': len(temp_results),
+                'People Count': temp_results.Samples.sum(),
+                'True Positive': len(true_positive),
+                'False Positive': len(false_positive),
+                'True Negative': len(true_negative),
+                'False Negative': len(false_negative),
+                'True Positive Rate': (len(true_positive) / (len(true_positive) + len(false_negative)) if (
+                    len(true_positive) + len(false_negative) != 0) else 0),
+                'True Negative Rate': (len(true_negative) / (len(true_negative) + len(false_positive)) if (
+                    len(true_negative) + len(false_positive) != 0) else 0),
+                'Positive Predictive Value': (
+                    len(true_positive) / (len(true_positive) + len(false_positive)) if (len(true_positive) + len(
+                        false_positive)) != 0 else 0),
+                'Negative Predictive Value': (
+                    len(true_negative) / (len(true_negative) + len(false_negative)) if (len(true_negative) + len(
+                        false_negative)) != 0 else 0),
+                'Revenue': m_revenue,
+                'Final Per-User Value': temp_results['New Baseline Value'].values[-1]
+            }
+        ]
+
+        temp_agg = pd.DataFrame(temp_agg)
+
+        agg_results = pd.concat([agg_results, temp_agg], ignore_index=True)  # Append the aggregate measure to DF
+
+    # Now let's save the aggregate data
+    for p in m_procs:
+        p.join()
+        filename = 'results/test_comparison/' + time.strftime('%Y%m%d_%H-%M_') + "Agg Results.csv"
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        agg_results.to_csv('results/test_comparison/' + time.strftime('%Y%m%d_%H-%M_') + 'Agg Results.csv', index=False)
+        ind_results.to_csv('results/test_comparison/' + time.strftime('%Y%m%d_%H-%M_') + 'Ind Results.csv', index=False)
 
 
 def test_rule(m_test):
-    if m_test.total_samples().sum() >= 1000:
+    if m_test.counts.sum() >= 5:
         return np.random.binomial(1, .2)
     else:
         return None
 
 
-run_test(test_rule, 1000000, 2, 4000)
+if __name__ == '__main__':
+    multi_test([test_rule], 300, 1, 10)
