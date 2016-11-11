@@ -35,7 +35,7 @@ def sequential_evanmiller_onesided(a_arm, b_arm):
 
 
 def sequential_evanmiller_twosided(a_arm, b_arm):
-    n = 50
+    n = 7360
     t = b_arm.total_conversions()
     c = a_arm.total_conversions()
     mrr = [5, 9, 30, 0]
@@ -127,22 +127,24 @@ def em_40(a_arm, b_arm):
 # Pick a winner the first time significance is reached
 
 def first_significant_two_sided(a_arm, b_arm):
-    alpha = 0.2
-    max_samples = 5000
+    alpha = 0.1
+    max_samples = 50000
     n_a = a_arm.total_samples()
     n_b = b_arm.total_samples()
     s_a = a_arm.total_conversions()
     s_b = b_arm.total_conversions()
     mrr = [5, 9, 30, 0]
 
-    if (s_a + s_b > 10):
+    if (s_a + s_b > 10 and (n_a + n_b) % 100 == 0):
         if testbed.get_p_value(s_a, n_a, s_b, n_b) < alpha:
-            if (np.array(a_arm.counts) * mrr).sum() > (np.array(b_arm.counts) * mrr).sum():
+            #if (np.array(a_arm.counts) * mrr).sum() > (np.array(b_arm.counts) * mrr).sum():
+            if s_a / n_a > s_b / n_b:
                 return 1, None
             else:
                 return 2, None
         elif n_a + n_b >= max_samples:
-            if (np.array(a_arm.counts) * mrr).sum() > (np.array(b_arm.counts) * mrr).sum():
+            #if (np.array(a_arm.counts) * mrr).sum() > (np.array(b_arm.counts) * mrr).sum():
+            if s_a / n_a > s_b / n_b:
                 return 1, None
             else:
                 return 2, None
@@ -204,7 +206,7 @@ def fixed_sample(a_arm, b_arm):
     n_b = b_arm.total_samples()
     s_a = a_arm.total_conversions()
     s_b = b_arm.total_conversions()
-    sample_size = 1000
+    sample_size = 368000
     mrr = [5, 9, 30, 0]
 
     if (n_a + n_b >= sample_size):
@@ -293,15 +295,15 @@ def thompson_sampling2(a_arm, b_arm):
 
 def tim_thompson_sampling(a_arm, b_arm):
     mrr = [5, 9, 30, 0]
-    threshold = 0.75
-    max_samples = 50000
+    threshold = 0.95
+    max_samples = 368000
 
     a_prior = np.array([1, 1, 1, 1])
     b_prior = a_prior
 
     total_samples = a_arm.total_samples() + b_arm.total_samples()
 
-    if total_samples % 100 == 0:
+    if total_samples % 1000 == 0:
 
         p_b_optimal = testbed.get_p_b_optimal(a_arm, b_arm)
 
@@ -538,4 +540,4 @@ if __name__ == '__main__':
 
     The resulting data/graphs will be stored under the results folder on your local machine. '''
 
-    testbed.multi_test([dynamic_threshold,dynamic_threshold,dynamic_threshold,dynamic_threshold,dynamic_threshold,dynamic_threshold], max_tests=500, plot=False, seed=None)
+    testbed.multi_test([sequential_evanmiller_twosided], max_tests=200, plot=True, max_people=10000000, test_size=2500000, seed=900)
