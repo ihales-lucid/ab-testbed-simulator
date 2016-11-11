@@ -33,9 +33,12 @@ class ABTest:
         m_results = {'Test Count': count,
                      'Test Name': test_rule.__name__,
                      'Samples': self.counts.sum(),
-                     'Best Arm': 'B' if (((tb_scaled * original_baseline) * mrr[:3]).sum() > (original_baseline * mrr[:3]).sum() - 1) else 'A',
+                     'Best Arm': 'B' if (
+                         ((tb_scaled * original_baseline) * mrr[:3]).sum() > (
+                             original_baseline * mrr[:3]).sum()) else 'A',
                      'Choice': 'A' if result == 0 else 'B',
-                     'Observed Difference': (self.counts[1] * mrr).sum() / (self.counts[0] * mrr).sum() - 1,
+                     'Observed Difference': 0 if (self.counts[0] * mrr).sum() == 0 else (self.counts[1] * mrr).sum() / (
+                         self.counts[0] * mrr).sum() - 1,
                      'Original Baseline Value': (original_baseline * mrr[:3]).sum(),
                      'New Baseline Value': (new_baseline * mrr[:3]).sum(),
                      'Test-Time Revenue': (self.counts * mrr).sum(),
@@ -135,13 +138,12 @@ def run_test(rule, max_people, max_concurrent, cadence, seed, q):
         # Get test assignment sand apply a scale factor to the T-B assignments
         test_assignments = np.array([m_test.get_assignment() for m_test in m_tests])
         test_probabilities = np.array(
-            [baseline if np.array_equal(x, [0, 0, 0]) else scale_tb(x) for x in test_assignments])
+            [[1, 1, 1] if np.array_equal(x, [0, 0, 0]) else scale_tb(x) for x in test_assignments])
 
         # Get the vector of combined probabilities for the person
         combined_probability = test_probabilities.prod(axis=int(0)) * baseline
-
         # Add the probability of Free
-        combined_probability = np.append(combined_probability, 1 - np.array(combined_probability).sum())
+        combined_probability = np.append(combined_probability, [1 - np.array(combined_probability).sum()])
 
         # Choose the winner
         sample_result = np.argmax(np.random.multinomial(1, combined_probability))
@@ -164,6 +166,7 @@ def run_test(rule, max_people, max_concurrent, cadence, seed, q):
                     x.finalize_test(result, test_count, baseline, new_baseline, scale_tb(x.tb_raw)))
                 del_list.append(i)
                 # Update the baseline based on the scaled value of this test
+                print(baseline)
                 baseline = new_baseline
                 print('Test #' + str(test_count) + ' completed. ' + str(people_count) + ' people tested so far.')
 
@@ -191,7 +194,7 @@ def multi_test(rules, max_people, max_concurrent, cadence, seed=None):
     for p in m_procs:
         p.start()
 
-    for p in m_procs:
+    for _ in m_procs:
         test_results = q.get()  # This gets the list of dicts of individual test results ({column: value})
         temp_results = pd.DataFrame(test_results)
         ind_results = pd.concat([ind_results, temp_results], ignore_index=True)  # Add the individual test results
@@ -242,11 +245,12 @@ def multi_test(rules, max_people, max_concurrent, cadence, seed=None):
 
 
 def test_rule(m_test):
-    if m_test.counts.sum() >= 5:
+    if m_test.counts.sum() >= 1000:
+        print(m_test.counts)
         return np.random.binomial(1, .2)
     else:
         return None
 
 
 if __name__ == '__main__':
-    multi_test([test_rule], 300, 1, 10)
+    multi_test([test_rule], 2000, 5, 10)
